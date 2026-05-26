@@ -263,7 +263,7 @@ const handleSubmit = async (formEl: FormInstance | undefined) => {
               customClass: 'pixel-notify'
             })
             store.setToken(res.data.token, freeLogin.value)
-            router.push('/mxcontent')
+            router.push('/intelligence')
             isInvoke.value = false
           } else if (res.data.code == 1) {
             ElMessage({

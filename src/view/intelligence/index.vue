@@ -1022,7 +1022,7 @@ const thinkStatus = (item: allInstall) => {
 }
 
 const goTocustomerService = () => {
-  router.push({ name: 'customer-service', query: { appid: nickAll.appid } })
+  router.push({ name: 'CustomerService', query: { appid: nickAll.appid } })
 }
 
 const saveUserProfile = () => {
