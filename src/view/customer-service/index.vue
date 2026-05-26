@@ -6,6 +6,10 @@ import hljs from 'highlight.js'
 import { aicgApi } from '@/api/aicg.ts'
 import { useRoute, useRouter } from 'vue-router'
 
+defineOptions({
+  name: 'CustomerService'
+})
+
 const router = useRouter()
 
 const chatConfig = reactive({
@@ -19,7 +23,7 @@ const chatConfig = reactive({
 
 const newMessage = ref('')
 const isTyping = ref(false)
-const messages = ref<Array<{type: 'user' | 'ai', content: string}>>([])
+const messages = ref<Array<{ type: 'user' | 'ai'; content: string }>>([])
 const messagesContainer = ref<HTMLElement | null>(null)
 const textareaDialogue = ref<HTMLElement | null>(null)
 const controller = ref<AbortController | null>(null) // 用于中止请求
@@ -48,15 +52,17 @@ const md: MarkdownIt = new MarkdownIt({
   highlight: function (str: string, lang: string): string {
     if (lang && hljs.getLanguage(lang)) {
       try {
-        return '<pre class="hljs"><code>' +
-               hljs.highlight(str, { language: lang, ignoreIllegals: true }).value +
-               '</code></pre>';
+        return (
+          '<pre class="hljs"><code>' +
+          hljs.highlight(str, { language: lang, ignoreIllegals: true }).value +
+          '</code></pre>'
+        )
       } catch {
         // 降级处理
       }
     }
 
-    return '<pre class="hljs"><code>' + md.utils.escapeHtml(str) + '</code></pre>';
+    return '<pre class="hljs"><code>' + md.utils.escapeHtml(str) + '</code></pre>'
   }
 })
 
@@ -89,13 +95,11 @@ const callDeepSeekAPI = async (prompt: string) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${chatConfig.apiKey}`
+        Authorization: `Bearer ${chatConfig.apiKey}`
       },
       body: JSON.stringify({
         model: apiConfig.model,
-        messages: [
-          { role: 'user', content: prompt }
-        ],
+        messages: [{ role: 'user', content: prompt }],
         temperature: apiConfig.temperature,
         max_tokens: apiConfig.maxTokens,
         top_p: apiConfig.topP,
@@ -118,70 +122,70 @@ const callDeepSeekAPI = async (prompt: string) => {
       type: 'ai' as const,
       content: ''
     }
-    
+
     // 添加空消息开始流式传输
     messages.value.push(currentAIMessage)
-    
+
     // 如果不是流式输出，等待完整响应
     if (!apiConfig.stream) {
       let result = ''
       let done = false
-      
+
       while (!done) {
         const { done: isDone, value } = await reader.read()
         if (isDone) {
           done = true
           break
         }
-        
+
         result += new TextDecoder().decode(value)
       }
-      
+
       try {
         const jsonResponse = JSON.parse(result)
         const content = jsonResponse.choices[0]?.message?.content || ''
-        
+
         currentAIMessage.content = content
         messages.value[messages.value.length - 1] = { ...currentAIMessage }
         scrollToBottom()
-        
+
         return content
       } catch (e) {
         console.error('解析响应失败:', e)
         return '解析响应失败'
       }
     }
-    
+
     // 流式输出处理
     while (true) {
       if (!isTyping.value) {
         reader.cancel()
         break
       }
-      
+
       const { done, value } = await reader.read()
-      
+
       if (done) {
         break
       }
-      
+
       // 解析流数据
       const chunk = new TextDecoder().decode(value)
       partialResponse += chunk
-      
+
       // 解析SSE格式，提取内容
       const lines = partialResponse.split('\n\n')
       partialResponse = lines.pop() || ''
-      
+
       for (const line of lines) {
         if (line.startsWith('data: ')) {
           const data = line.slice(6)
           if (data === '[DONE]') continue
-          
+
           try {
             const parsedData = JSON.parse(data)
             const content = parsedData.choices[0]?.delta?.content || ''
-            
+
             if (content) {
               // 更新最后一条AI消息
               currentAIMessage.content += content
@@ -194,7 +198,7 @@ const callDeepSeekAPI = async (prompt: string) => {
         }
       }
     }
-    
+
     return currentAIMessage.content
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
@@ -216,20 +220,20 @@ const simulateAPIResponse = async () => {
     '这片大陆上许多冒险者都问过类似的问题。',
     '冒险者公会为你提供最专业的魔法支援。'
   ]
-  
+
   // 创建消息对象
   const aiMessage = {
     type: 'ai' as const,
     content: ''
   }
-  
+
   // 添加空消息开始模拟流式传输
   messages.value.push(aiMessage)
-  
+
   // 选择一个响应
   const fullResponse = responses[Math.floor(Math.random() * responses.length)]
   let currentIndex = 0
-  
+
   // 模拟流式传输，每100ms添加一个字符
   return new Promise<string>(resolve => {
     const interval = setInterval(() => {
@@ -238,7 +242,7 @@ const simulateAPIResponse = async () => {
         resolve(aiMessage.content)
         return
       }
-      
+
       aiMessage.content += fullResponse[currentIndex]
       messages.value[messages.value.length - 1] = { ...aiMessage }
       scrollToBottom()
@@ -250,7 +254,7 @@ const simulateAPIResponse = async () => {
 // 发送消息
 const sendMessage = async () => {
   if (!newMessage.value.trim() || isTyping.value) return
-  
+
   // 添加用户消息
   const userMessage = newMessage.value.trim()
   messages.value.push({
@@ -258,13 +262,13 @@ const sendMessage = async () => {
     content: userMessage
   })
   console.log(messages.value)
-  
+
   newMessage.value = ''
   if (textareaDialogue.value) {
     textareaDialogue.value.style.height = 'auto'
   }
   scrollToBottom()
-  
+
   // 开始AI回复
   isTyping.value = true
   await callDeepSeekAPI(userMessage)
@@ -276,9 +280,9 @@ const stopTyping = () => {
   if (controller.value) {
     controller.value.abort() // 中止API请求
   }
-  
+
   isTyping.value = false
-  
+
   // 如果最后一条消息是AI消息且内容为空，添加已停止提示
   const lastMessage = messages.value[messages.value.length - 1]
   if (lastMessage && lastMessage.type === 'ai' && !lastMessage.content.trim()) {
@@ -287,7 +291,7 @@ const stopTyping = () => {
     // 如果已经有内容，追加停止提示
     lastMessage.content += ' (回复已停止)'
   }
-  
+
   scrollToBottom()
 }
 
@@ -298,18 +302,20 @@ const resetConversation = () => {
     controller.value.abort()
     isTyping.value = false
   }
-  
-  messages.value = [{
-    type: 'ai',
-    content: chatConfig.welcomeText
-  }]
+
+  messages.value = [
+    {
+      type: 'ai',
+      content: chatConfig.welcomeText
+    }
+  ]
 }
 
 // 测试对话
 const startTestConversation = () => {
   // 防抖：如果isTyping为真，不允许再次启动测试对话
   if (isTyping.value) return
-  
+
   resetConversation()
   setTimeout(() => {
     messages.value.push({
@@ -337,14 +343,14 @@ const showApiConfig = () => {
 const saveApiConfig = () => {
   // 更新API Key到主配置
   chatConfig.apiKey = apiConfig.apiKey
-  
+
   // 关闭对话框
   apiDialogVisible.value = false
-  
+
   // 提示保存成功
   ElMessage({
     message: '法术配置已铭刻',
-    type: 'success',
+    type: 'success'
   })
 }
 
@@ -356,23 +362,22 @@ const saveConfig = () => {
     signature: chatConfig.signature,
     title: chatConfig.title,
     techBrand: chatConfig.techBrand,
-    themeColor: chatConfig.themeColor,
+    themeColor: chatConfig.themeColor
   }
   // localStorage.setItem('chatConfig', config)
-  aicgApi.addCustomerService(config)
-    .then((res) => {
-      if (res.data.code == 0) {
-        ElMessage({
-          message: '铭刻成功！配置已保存。',
-          type: 'success',
-        })
-      } else {
-        ElMessage({
-          message: res.data.msg,
-          type: 'error',
-        })
-      }
-    })
+  aicgApi.addCustomerService(config).then(res => {
+    if (res.data.code == 0) {
+      ElMessage({
+        message: '铭刻成功！配置已保存。',
+        type: 'success'
+      })
+    } else {
+      ElMessage({
+        message: res.data.msg,
+        type: 'error'
+      })
+    }
+  })
 }
 
 // 导出配置
@@ -380,12 +385,12 @@ const exportConfig = () => {
   const config = JSON.stringify(chatConfig, null, 2)
   const blob = new Blob([config], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
-  
+
   const a = document.createElement('a')
   a.href = url
   a.download = 'chat-config.json'
   a.click()
-  
+
   URL.revokeObjectURL(url)
 }
 
@@ -409,46 +414,48 @@ window.BotConfig = {
   scriptElement.src = "${windowUrl.value}/js/kefuButton.js";
   document.head.appendChild(scriptElement);
 })();
-<\/script>`;
+<\/script>`
 
   if (navigator.clipboard) {
-    navigator.clipboard.writeText(text).then(() => {
-      ElMessage({
-        message: '符石已复制！',
-        type: 'success',
-      })
-    })
-    .catch(()=> {
-      ElMessage({
-        message: '符石复制失败',
-        type: 'error',
-      })
-    })
-  } else {
-    const textarea = document.createElement('textarea');
-      textarea.value = text;
-      // 隐藏文本框（多种方式组合确保不可见）
-      textarea.style.position = 'fixed';     // 防止滚动跳动
-      textarea.style.opacity = '0';          // 完全透明
-      textarea.style.left = '-9999px';       // 移出可视区域
-      textarea.style.pointerEvents = 'none'; // 禁止交互
-      textarea.setAttribute('readonly', ''); // 防止移动端键盘弹出
-      document.body.appendChild(textarea);
-      textarea.select()
-      try {
-        document.execCommand('copy');
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
         ElMessage({
           message: '符石已复制！',
-          type: 'success',
+          type: 'success'
         })
-      } catch {
+      })
+      .catch(() => {
         ElMessage({
           message: '符石复制失败',
-          type: 'error',
+          type: 'error'
         })
-      } finally {
-        document.body.removeChild(textarea);
-      }
+      })
+  } else {
+    const textarea = document.createElement('textarea')
+    textarea.value = text
+    // 隐藏文本框（多种方式组合确保不可见）
+    textarea.style.position = 'fixed' // 防止滚动跳动
+    textarea.style.opacity = '0' // 完全透明
+    textarea.style.left = '-9999px' // 移出可视区域
+    textarea.style.pointerEvents = 'none' // 禁止交互
+    textarea.setAttribute('readonly', '') // 防止移动端键盘弹出
+    document.body.appendChild(textarea)
+    textarea.select()
+    try {
+      document.execCommand('copy')
+      ElMessage({
+        message: '符石已复制！',
+        type: 'success'
+      })
+    } catch {
+      ElMessage({
+        message: '符石复制失败',
+        type: 'error'
+      })
+    } finally {
+      document.body.removeChild(textarea)
+    }
   }
 }
 
@@ -506,10 +513,12 @@ window.BotConfig = {
 &lt;/script&gt;</code>
 </pre>`
   // 初始化欢迎消息
-  messages.value = [{
-    type: 'ai',
-    content: chatConfig.welcomeText
-  }]
+  messages.value = [
+    {
+      type: 'ai',
+      content: chatConfig.welcomeText
+    }
+  ]
 })
 
 onUnmounted(() => {
@@ -523,85 +532,168 @@ onUnmounted(() => {
     <div class="w-[300px] bg-white border-r p-5 flex flex-col h-screen overflow-y-auto">
       <div class="flex items-center justify-between mb-6">
         <h1 class="text-xl font-bold">冒险者公会</h1>
-        <button @click="goBack" class="flex items-center justify-center p-2 rounded-full hover:bg-gray-100" title="返回">
+        <button
+          @click="goBack"
+          class="flex items-center justify-center p-2 rounded-full hover:bg-gray-100"
+          title="返回"
+        >
           <i class="fas fa-arrow-left text-gray-600"></i>
         </button>
       </div>
-      
+
       <!-- 基础配置区 -->
       <div class="mb-6">
         <h2 class="text-sm font-bold mb-3">文字铭刻</h2>
 
         <div class="mb-4">
           <label class="block text-xs text-gray-600 mb-1">欢迎寄语:</label>
-          <input v-model="chatConfig.welcomeText" type="text" class="w-full border rounded p-2 text-sm bg-gray-50" />
+          <input
+            v-model="chatConfig.welcomeText"
+            type="text"
+            class="w-full border rounded p-2 text-sm bg-gray-50"
+          />
         </div>
 
         <div class="mb-4">
           <label class="block text-xs text-gray-600 mb-1">署名:</label>
-          <input v-model="chatConfig.signature" type="text" class="w-full border rounded p-2 text-sm bg-gray-50" />
+          <input
+            v-model="chatConfig.signature"
+            type="text"
+            class="w-full border rounded p-2 text-sm bg-gray-50"
+          />
         </div>
 
         <div class="mb-4">
           <label class="block text-xs text-gray-600 mb-1">称号:</label>
-          <input v-model="chatConfig.title" type="text" class="w-full border rounded p-2 text-sm bg-gray-50" />
+          <input
+            v-model="chatConfig.title"
+            type="text"
+            class="w-full border rounded p-2 text-sm bg-gray-50"
+          />
         </div>
 
         <div class="mb-4">
           <label class="block text-xs text-gray-600 mb-1">工坊印记:</label>
-          <input v-model="chatConfig.techBrand" type="text" class="w-full border rounded p-2 text-sm bg-gray-50" />
+          <input
+            v-model="chatConfig.techBrand"
+            type="text"
+            class="w-full border rounded p-2 text-sm bg-gray-50"
+          />
         </div>
       </div>
 
       <!-- 颜色配置区 -->
       <div class="mb-6">
         <h2 class="text-sm font-bold mb-3">元素配色</h2>
-        
+
         <div class="grid grid-cols-3 gap-2 mb-2">
-          <div class="text-center py-2 bg-blue-600 text-white text-xs rounded cursor-pointer" @click="setThemeColor('#2563eb')">苍蓝</div>
-          <div class="text-center py-2 bg-green-600 text-white text-xs rounded cursor-pointer" @click="setThemeColor('#16a34a')">翠绿</div>
-          <div class="text-center py-2 bg-purple-600 text-white text-xs rounded cursor-pointer" @click="setThemeColor('#9333ea')">紫晶</div>
+          <div
+            class="text-center py-2 bg-blue-600 text-white text-xs rounded cursor-pointer"
+            @click="setThemeColor('#2563eb')"
+          >
+            苍蓝
+          </div>
+          <div
+            class="text-center py-2 bg-green-600 text-white text-xs rounded cursor-pointer"
+            @click="setThemeColor('#16a34a')"
+          >
+            翠绿
+          </div>
+          <div
+            class="text-center py-2 bg-purple-600 text-white text-xs rounded cursor-pointer"
+            @click="setThemeColor('#9333ea')"
+          >
+            紫晶
+          </div>
         </div>
 
         <div class="grid grid-cols-3 gap-2 mb-2">
-          <div class="text-center py-2 bg-red-600 text-white text-xs rounded cursor-pointer" @click="setThemeColor('#dc2626')">赤焰</div>
-          <div class="text-center py-2 bg-gray-700 text-white text-xs rounded cursor-pointer" @click="setThemeColor('#374151')">暗影</div>
-          <div class="text-center py-2 bg-yellow-500 text-white text-xs rounded cursor-pointer" @click="setThemeColor('#eab308')">辉金</div>
+          <div
+            class="text-center py-2 bg-red-600 text-white text-xs rounded cursor-pointer"
+            @click="setThemeColor('#dc2626')"
+          >
+            赤焰
+          </div>
+          <div
+            class="text-center py-2 bg-gray-700 text-white text-xs rounded cursor-pointer"
+            @click="setThemeColor('#374151')"
+          >
+            暗影
+          </div>
+          <div
+            class="text-center py-2 bg-yellow-500 text-white text-xs rounded cursor-pointer"
+            @click="setThemeColor('#eab308')"
+          >
+            辉金
+          </div>
         </div>
       </div>
-      
+
       <!-- 测试功能区 -->
       <div class="mb-6">
         <h2 class="text-sm font-bold mb-3">试炼功能</h2>
-        <button @click="startTestConversation" class="w-full bg-gray-100 hover:bg-gray-200 py-2 rounded text-sm mb-2">试炼对话</button>
-        <button @click="showApiConfig" class="w-full bg-gray-100 hover:bg-gray-200 py-2 rounded text-sm">法术配置</button>
+        <button
+          @click="startTestConversation"
+          class="w-full bg-gray-100 hover:bg-gray-200 py-2 rounded text-sm mb-2"
+        >
+          试炼对话
+        </button>
+        <button
+          @click="showApiConfig"
+          class="w-full bg-gray-100 hover:bg-gray-200 py-2 rounded text-sm"
+        >
+          法术配置
+        </button>
       </div>
 
       <!-- 创建按钮 -->
       <div class="mt-auto pt-6">
-        <button @click="saveConfig" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded">铭刻配置</button>
+        <button
+          @click="saveConfig"
+          class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded"
+        >
+          铭刻配置
+        </button>
       </div>
 
       <!-- 分享&发布 -->
       <div class="mt-6">
-        <button @click="publishDialogVisible = true" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded">召唤符石</button>
+        <button
+          @click="publishDialogVisible = true"
+          class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded"
+        >
+          召唤符石
+        </button>
       </div>
     </div>
-    
+
     <!-- 右侧对话区域 -->
     <div class="flex-1 bg-gray-100 p-6 h-screen flex flex-col items-center justify-center">
       <div class="flex justify-between items-center mb-6 w-full max-w-[375px]">
         <h2 class="text-xl font-semibold">预览视界</h2>
         <div class="flex gap-2">
-          <button @click="resetConversation" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded text-sm">重置冒险</button>
-          <button @click="exportConfig" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm">导出铭文</button>
+          <button
+            @click="resetConversation"
+            class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded text-sm"
+          >
+            重置冒险
+          </button>
+          <button
+            @click="exportConfig"
+            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm"
+          >
+            导出铭文
+          </button>
         </div>
       </div>
-      
+
       <!-- 聊天窗口 -->
       <div class="window-wrapper flex flex-col bg-white shadow overflow-hidden h-[667px] w-[375px]">
         <!-- 聊天头部 -->
-        <div class="h-12 flex items-center justify-between px-4" :style="`background-color: ${chatConfig.themeColor || '#4CAF50'}`">
+        <div
+          class="h-12 flex items-center justify-between px-4"
+          :style="`background-color: ${chatConfig.themeColor || '#4CAF50'}`"
+        >
           <div class="flex items-center">
             <i class="fas fa-robot text-white mr-2"></i>
             <span class="text-white text-sm">{{ chatConfig.title }}</span>
@@ -616,28 +708,49 @@ onUnmounted(() => {
           <div v-for="(message, index) in messages" :key="index" class="mb-4">
             <!-- AI消息 -->
             <div v-if="message.type === 'ai'" class="overflow-hidden">
-              <div class="text-sm text-black p-3 bg-white rounded shadow-sm inline-block max-w-[280px] float-left markdown-content" v-html="renderMarkdown(message.content)"></div>
+              <div
+                class="text-sm text-black p-3 bg-white rounded shadow-sm inline-block max-w-[280px] float-left markdown-content"
+                v-html="renderMarkdown(message.content)"
+              ></div>
               <div class="clear-both"></div>
-              <div v-if="chatConfig.signature" class="text-[11px] text-gray-400 mt-1 ml-1">{{ chatConfig.signature }}</div>
+              <div v-if="chatConfig.signature" class="text-[11px] text-gray-400 mt-1 ml-1">
+                {{ chatConfig.signature }}
+              </div>
             </div>
-            
+
             <!-- 用户消息 -->
             <div v-else class="overflow-hidden text-right">
-              <div class="text-sm text-white p-3 rounded inline-block max-w-[280px] float-right" 
-                   :style="`background-color: ${chatConfig.themeColor || '#4CAF50'}`">
+              <div
+                class="text-sm text-white p-3 rounded inline-block max-w-[280px] float-right"
+                :style="`background-color: ${chatConfig.themeColor || '#4CAF50'}`"
+              >
                 {{ message.content }}
               </div>
               <div class="clear-both"></div>
             </div>
           </div>
-          
+
           <!-- 加载中指示器 -->
-          <div v-if="isTyping && (!messages.length || messages[messages.length-1].type !== 'ai' || messages[messages.length-1].content === '')" class="mb-4">
+          <div
+            v-if="
+              isTyping &&
+              (!messages.length ||
+                messages[messages.length - 1].type !== 'ai' ||
+                messages[messages.length - 1].content === '')
+            "
+            class="mb-4"
+          >
             <div class="text-sm p-3 bg-white rounded shadow-sm inline-block max-w-[280px]">
               <div class="flex space-x-1">
                 <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
-                <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.4s"></div>
+                <div
+                  class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                  style="animation-delay: 0.2s"
+                ></div>
+                <div
+                  class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                  style="animation-delay: 0.4s"
+                ></div>
               </div>
             </div>
           </div>
@@ -683,25 +796,25 @@ onUnmounted(() => {
   </div>
 
   <!-- 发布弹窗 -->
-  <el-dialog
-    v-model="publishDialogVisible"
-    title="召唤符石"
-    width="550"
-    class="pixel-dialog"
-  >
-  <div class="acquire">
-    <h1 class="acquire-title">第一章：获取符石</h1>
-    <p class="acquire-text">此符石适用于 PC 端页面，请将符石铭刻到需要使用对话的每个网页中</p>
-    <div class="acquire-code mt-2 mb-2" v-html="rawHtml"></div>
-  </div>
-  <div @click="copyCode" class="w-[70px] px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm text-center code-copy">复制</div>
-  <div class="acquire mt-5">
-    <h1 class="acquire-title">第二章：符石镶嵌</h1>
-    <p>1、请将符石添加到网页的 &lt;head&gt; 标签内</p>
-    <p>2、切记勿自行修改符石铭文</p>
-  </div>
+  <el-dialog v-model="publishDialogVisible" title="召唤符石" width="550" class="pixel-dialog">
+    <div class="acquire">
+      <h1 class="acquire-title">第一章：获取符石</h1>
+      <p class="acquire-text">此符石适用于 PC 端页面，请将符石铭刻到需要使用对话的每个网页中</p>
+      <div class="acquire-code mt-2 mb-2" v-html="rawHtml"></div>
+    </div>
+    <div
+      @click="copyCode"
+      class="w-[70px] px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm text-center code-copy"
+    >
+      复制
+    </div>
+    <div class="acquire mt-5">
+      <h1 class="acquire-title">第二章：符石镶嵌</h1>
+      <p>1、请将符石添加到网页的 &lt;head&gt; 标签内</p>
+      <p>2、切记勿自行修改符石铭文</p>
+    </div>
   </el-dialog>
-  
+
   <!-- API配置弹窗 -->
   <el-dialog
     v-model="apiDialogVisible"
@@ -712,11 +825,7 @@ onUnmounted(() => {
   >
     <el-form label-width="120px" label-position="left">
       <el-form-item label="法术密钥">
-        <el-input
-          v-model="apiConfig.apiKey"
-          placeholder="请输入 DeepSeek 法术密钥"
-          show-password
-        />
+        <el-input v-model="apiConfig.apiKey" placeholder="请输入 DeepSeek 法术密钥" show-password />
         <div class="text-xs text-gray-500 mt-1">可在 DeepSeek 魔法塔获取法术密钥</div>
       </el-form-item>
 
@@ -729,12 +838,18 @@ onUnmounted(() => {
       </el-form-item>
 
       <el-form-item label="火焰温度">
-        <el-slider v-model="apiConfig.temperature" :min="0" :max="1" :step="0.1" class="w-full"/>
+        <el-slider v-model="apiConfig.temperature" :min="0" :max="1" :step="0.1" class="w-full" />
         <div class="text-xs text-gray-500 mt-1">低温使回答更确定，高温使回答更富有变化</div>
       </el-form-item>
 
       <el-form-item label="最大卷轴长度">
-        <el-slider v-model="apiConfig.maxTokens" :min="100" :max="4000" :step="100" class="w-full" />
+        <el-slider
+          v-model="apiConfig.maxTokens"
+          :min="100"
+          :max="4000"
+          :step="100"
+          class="w-full"
+        />
         <div class="text-xs text-gray-500 mt-1">控制回复的最大长度，卷轴越长消耗的法力越多</div>
       </el-form-item>
 
@@ -761,15 +876,15 @@ onUnmounted(() => {
 <style>
 /* 全局样式，不受scoped限制 */
 button,
-[type="button"],
-[type="reset"],
-[type="submit"],
+[type='button'],
+[type='reset'],
+[type='submit'],
 .cursor-pointer,
-[class*="hover"],
+[class*='hover'],
 a,
 .text-center.py-2,
-input[type="radio"],
-input[type="checkbox"],
+input[type='radio'],
+input[type='checkbox'],
 select,
 .clickable {
   cursor: pointer;
@@ -840,7 +955,7 @@ $pixel-border: #31415b;
 }
 
 /* 文字配置输入框 */
-.bg-white.border-r input[type="text"],
+.bg-white.border-r input[type='text'],
 .bg-white.border-r textarea {
   background: rgba(0, 0, 0, 0.4);
   border: 2px solid rgba($neon-cyan, 0.3) !important;
@@ -848,10 +963,18 @@ $pixel-border: #31415b;
   outline: none;
   box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.3);
   clip-path: polygon(
-    0 3px, 3px 3px, 3px 0,
-    calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px,
-    100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%,
-    3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px)
+    0 3px,
+    3px 3px,
+    3px 0,
+    calc(100% - 3px) 0,
+    calc(100% - 3px) 3px,
+    100% 3px,
+    100% calc(100% - 3px),
+    calc(100% - 3px) calc(100% - 3px),
+    calc(100% - 3px) 100%,
+    3px 100%,
+    3px calc(100% - 3px),
+    0 calc(100% - 3px)
   );
 
   &:focus {
@@ -863,16 +986,28 @@ $pixel-border: #31415b;
 }
 
 /* 颜色预设按钮 */
-.bg-blue-600, .bg-green-600, .bg-purple-600,
-.bg-red-600, .bg-gray-700, .bg-yellow-500 {
+.bg-blue-600,
+.bg-green-600,
+.bg-purple-600,
+.bg-red-600,
+.bg-gray-700,
+.bg-yellow-500 {
   border: 2px solid $pixel-border;
   font-weight: 600;
   transition: all 0.1s ease;
   clip-path: polygon(
-    0 3px, 3px 3px, 3px 0,
-    calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px,
-    100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%,
-    3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px)
+    0 3px,
+    3px 3px,
+    3px 0,
+    calc(100% - 3px) 0,
+    calc(100% - 3px) 3px,
+    100% 3px,
+    100% calc(100% - 3px),
+    calc(100% - 3px) calc(100% - 3px),
+    calc(100% - 3px) 100%,
+    3px 100%,
+    3px calc(100% - 3px),
+    0 calc(100% - 3px)
   );
 
   &:hover {
@@ -895,10 +1030,18 @@ button.bg-gray-100 {
   font-weight: 600;
   backdrop-filter: blur(10px);
   clip-path: polygon(
-    0 3px, 3px 3px, 3px 0,
-    calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px,
-    100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%,
-    3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px)
+    0 3px,
+    3px 3px,
+    3px 0,
+    calc(100% - 3px) 0,
+    calc(100% - 3px) 3px,
+    100% 3px,
+    100% calc(100% - 3px),
+    calc(100% - 3px) calc(100% - 3px),
+    calc(100% - 3px) 100%,
+    3px 100%,
+    3px calc(100% - 3px),
+    0 calc(100% - 3px)
   );
   transition: all 0.15s ease;
 
@@ -923,10 +1066,18 @@ button.bg-blue-600 {
     inset 0 1px 0 rgba(255, 255, 255, 0.15),
     inset 0 -1px 0 rgba(0, 0, 0, 0.3);
   clip-path: polygon(
-    0 4px, 4px 4px, 4px 0,
-    calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px,
-    100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%,
-    4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px)
+    0 4px,
+    4px 4px,
+    4px 0,
+    calc(100% - 4px) 0,
+    calc(100% - 4px) 4px,
+    100% 4px,
+    100% calc(100% - 4px),
+    calc(100% - 4px) calc(100% - 4px),
+    calc(100% - 4px) 100%,
+    4px 100%,
+    4px calc(100% - 4px),
+    0 calc(100% - 4px)
   );
   transition: all 0.15s ease;
 
@@ -964,10 +1115,18 @@ button.bg-gray-200 {
   color: $pixel-text;
   font-weight: 600;
   clip-path: polygon(
-    0 3px, 3px 3px, 3px 0,
-    calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px,
-    100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%,
-    3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px)
+    0 3px,
+    3px 3px,
+    3px 0,
+    calc(100% - 3px) 0,
+    calc(100% - 3px) 3px,
+    100% 3px,
+    100% calc(100% - 3px),
+    calc(100% - 3px) calc(100% - 3px),
+    calc(100% - 3px) 100%,
+    3px 100%,
+    3px calc(100% - 3px),
+    0 calc(100% - 3px)
   );
   transition: all 0.15s ease;
 
@@ -989,10 +1148,18 @@ button.bg-gray-200 {
     0 0 20px rgba($neon-purple, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.15);
   clip-path: polygon(
-    0 3px, 3px 3px, 3px 0,
-    calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px,
-    100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%,
-    3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px)
+    0 3px,
+    3px 3px,
+    3px 0,
+    calc(100% - 3px) 0,
+    calc(100% - 3px) 3px,
+    100% 3px,
+    100% calc(100% - 3px),
+    calc(100% - 3px) calc(100% - 3px),
+    calc(100% - 3px) 100%,
+    3px 100%,
+    3px calc(100% - 3px),
+    0 calc(100% - 3px)
   );
   transition: all 0.15s ease;
 
@@ -1015,10 +1182,18 @@ button.bg-gray-200 {
     0 0 60px rgba($neon-magenta, 0.15),
     0 25px 50px rgba(0, 0, 0, 0.5);
   clip-path: polygon(
-    0 8px, 8px 8px, 8px 0,
-    calc(100% - 8px) 0, calc(100% - 8px) 8px, 100% 8px,
-    100% calc(100% - 8px), calc(100% - 8px) calc(100% - 8px), calc(100% - 8px) 100%,
-    8px 100%, 8px calc(100% - 8px), 0 calc(100% - 8px)
+    0 8px,
+    8px 8px,
+    8px 0,
+    calc(100% - 8px) 0,
+    calc(100% - 8px) 8px,
+    100% 8px,
+    100% calc(100% - 8px),
+    calc(100% - 8px) calc(100% - 8px),
+    calc(100% - 8px) 100%,
+    8px 100%,
+    8px calc(100% - 8px),
+    0 calc(100% - 8px)
   );
 }
 
@@ -1037,9 +1212,7 @@ button.bg-gray-200 {
 
 /* AI 消息气泡 */
 .window-wrapper .bg-white.rounded.shadow-sm {
-  background: linear-gradient(180deg,
-    rgba($neon-cyan, 0.15) 0%,
-    rgba($neon-cyan, 0.08) 100%);
+  background: linear-gradient(180deg, rgba($neon-cyan, 0.15) 0%, rgba($neon-cyan, 0.08) 100%);
   color: $pixel-text;
   border: 1px solid rgba($neon-cyan, 0.25);
   box-shadow:
@@ -1094,10 +1267,18 @@ button.bg-gray-200 {
     0 0 60px rgba($neon-magenta, 0.2),
     0 25px 50px rgba(0, 0, 0, 0.5);
   clip-path: polygon(
-    0 8px, 8px 8px, 8px 0,
-    calc(100% - 8px) 0, calc(100% - 8px) 8px, 100% 8px,
-    100% calc(100% - 8px), calc(100% - 8px) calc(100% - 8px), calc(100% - 8px) 100%,
-    8px 100%, 8px calc(100% - 8px), 0 calc(100% - 8px)
+    0 8px,
+    8px 8px,
+    8px 0,
+    calc(100% - 8px) 0,
+    calc(100% - 8px) 8px,
+    100% 8px,
+    100% calc(100% - 8px),
+    calc(100% - 8px) calc(100% - 8px),
+    calc(100% - 8px) 100%,
+    8px 100%,
+    8px calc(100% - 8px),
+    0 calc(100% - 8px)
   );
 }
 
@@ -1121,10 +1302,18 @@ button.bg-gray-200 {
   color: $pixel-text;
   box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.3);
   clip-path: polygon(
-    0 3px, 3px 3px, 3px 0,
-    calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px,
-    100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%,
-    3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px)
+    0 3px,
+    3px 3px,
+    3px 0,
+    calc(100% - 3px) 0,
+    calc(100% - 3px) 3px,
+    100% 3px,
+    100% calc(100% - 3px),
+    calc(100% - 3px) calc(100% - 3px),
+    calc(100% - 3px) 100%,
+    3px 100%,
+    3px calc(100% - 3px),
+    0 calc(100% - 3px)
   );
 
   &:hover {
@@ -1139,10 +1328,18 @@ button.bg-gray-200 {
 :global(.pixel-dialog .el-button) {
   font-weight: 600;
   clip-path: polygon(
-    0 3px, 3px 3px, 3px 0,
-    calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px,
-    100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%,
-    3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px)
+    0 3px,
+    3px 3px,
+    3px 0,
+    calc(100% - 3px) 0,
+    calc(100% - 3px) 3px,
+    100% 3px,
+    100% calc(100% - 3px),
+    calc(100% - 3px) calc(100% - 3px),
+    calc(100% - 3px) 100%,
+    3px 100%,
+    3px calc(100% - 3px),
+    0 calc(100% - 3px)
   );
   transition: all 0.15s ease;
 }
@@ -1185,10 +1382,18 @@ button.bg-gray-200 {
   border: 2px solid rgba($neon-cyan, 0.3);
   color: $pixel-text;
   clip-path: polygon(
-    0 3px, 3px 3px, 3px 0,
-    calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px,
-    100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%,
-    3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px)
+    0 3px,
+    3px 3px,
+    3px 0,
+    calc(100% - 3px) 0,
+    calc(100% - 3px) 3px,
+    100% 3px,
+    100% calc(100% - 3px),
+    calc(100% - 3px) calc(100% - 3px),
+    calc(100% - 3px) 100%,
+    3px 100%,
+    3px calc(100% - 3px),
+    0 calc(100% - 3px)
   );
 
   &:hover {
@@ -1306,10 +1511,18 @@ button.bg-gray-200 {
   background: rgba(0, 0, 0, 0.4);
   color: $neon-cyan-light;
   clip-path: polygon(
-    0 4px, 4px 4px, 4px 0,
-    calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px,
-    100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%,
-    4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px)
+    0 4px,
+    4px 4px,
+    4px 0,
+    calc(100% - 4px) 0,
+    calc(100% - 4px) 4px,
+    100% 4px,
+    100% calc(100% - 4px),
+    calc(100% - 4px) calc(100% - 4px),
+    calc(100% - 4px) 100%,
+    4px 100%,
+    4px calc(100% - 4px),
+    0 calc(100% - 4px)
   );
 }
 
@@ -1317,10 +1530,18 @@ button.bg-gray-200 {
   font-weight: 600;
   transition: all 0.15s ease;
   clip-path: polygon(
-    0 3px, 3px 3px, 3px 0,
-    calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px,
-    100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%,
-    3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px)
+    0 3px,
+    3px 3px,
+    3px 0,
+    calc(100% - 3px) 0,
+    calc(100% - 3px) 3px,
+    100% 3px,
+    100% calc(100% - 3px),
+    calc(100% - 3px) calc(100% - 3px),
+    calc(100% - 3px) 100%,
+    3px 100%,
+    3px calc(100% - 3px),
+    0 calc(100% - 3px)
   );
 
   &:active {
@@ -1345,7 +1566,8 @@ button.bg-gray-200 {
   color: $pixel-text;
 }
 
-.markdown-content :deep(ul), .markdown-content :deep(ol) {
+.markdown-content :deep(ul),
+.markdown-content :deep(ol) {
   padding-left: 1.5em;
   margin: 0.5em 0;
 }
@@ -1389,7 +1611,8 @@ button.bg-gray-200 {
   width: 100%;
 }
 
-.markdown-content :deep(th), .markdown-content :deep(td) {
+.markdown-content :deep(th),
+.markdown-content :deep(td) {
   border: 1px solid $pixel-border;
   padding: 0.25em 0.5em;
   text-align: left;
@@ -1421,5 +1644,4 @@ button.bg-gray-200 {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba($neon-cyan, 0.4);
 }
-
-</style> 
+</style>

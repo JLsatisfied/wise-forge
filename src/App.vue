@@ -1,16 +1,13 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-defineOptions({
-    name: 'home'
-})
 
 let Icon = ref('')
 
 onMounted(() => {
-  let favicon = document.querySelector('link[rel="icon"]') as HTMLLinkElement | null;
-  Icon.value = navigator.onLine ? '/brave.jpeg' : '/brave_gray.jpg';
+  let favicon = document.querySelector('link[rel="icon"]') as HTMLLinkElement | null
+  Icon.value = navigator.onLine ? '/brave.jpeg' : '/brave_gray.jpg'
   if (favicon) {
-    favicon.href = `${Icon.value}?v=${Date.now()}`;
+    favicon.href = `${Icon.value}?v=${Date.now()}`
   }
 })
 </script>
@@ -20,7 +17,3 @@ onMounted(() => {
     <router-view></router-view>
   </main>
 </template>
-
-<style>
-
-</style>

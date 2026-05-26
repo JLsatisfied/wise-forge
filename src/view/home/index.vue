@@ -1,450 +1,444 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted } from "vue";
-import { useRouter } from "vue-router";
-import {
-  Lock,
-  User,
-  VideoCameraFilled,
-  Key,
-  Message,
-  Plus
-} from "@element-plus/icons-vue";
-import type { FormInstance, FormRules } from "element-plus";
-import { userApi } from "@/api/user.ts";
-import forge from "node-forge";
-import { useStore } from "@/store/index.ts";
-import useFileUpload from "@/composables/useFileUpload.ts";
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { Lock, User, VideoCameraFilled, Key, Message, Plus } from '@element-plus/icons-vue'
+import type { FormInstance, FormRules } from 'element-plus'
+import { userApi } from '@/api/user.ts'
+import forge from 'node-forge'
+import { useStore } from '@/store/index.ts'
+import useFileUpload from '@/composables/useFileUpload.ts'
 
-const isUiModule = ref("login");
-const dialogVisible = ref(false);
-const formRef = ref<FormInstance>();
-const text = ref<string>("时空旅者：现实与幻想的双重奏");
-const currentTextIndex = ref(0);
-const router = useRouter();
-const fileInput = ref<null | HTMLInputElement>(null);
-const freeLogin = ref(false);
-const svgSrc = ref("");
-const isInvoke = ref(false);
-const pubKey = ref(""); // rsa公钥
+defineOptions({
+  name: 'HomePage'
+})
+
+const isUiModule = ref('login')
+const dialogVisible = ref(false)
+const formRef = ref<FormInstance>()
+const text = ref<string>('时空旅者：现实与幻想的双重奏')
+const currentTextIndex = ref(0)
+const router = useRouter()
+const fileInput = ref<null | HTMLInputElement>(null)
+const freeLogin = ref(false)
+const svgSrc = ref('')
+const isInvoke = ref(false)
+const pubKey = ref('') // rsa公钥
 const stars = ref(
   Array.from({ length: 20 }, () => ({
-    left: Math.random() * 100 + "%",
-    top: Math.random() * 60 + "%",
-    delay: Math.random() * 2 + "s"
+    left: Math.random() * 100 + '%',
+    top: Math.random() * 60 + '%',
+    delay: Math.random() * 2 + 's'
   }))
-);
+)
 
 const features = [
-  { icon: "◇", title: "AI 魔法对话", desc: "多模型智能问答", color: "#7dd8c7" },
-  { icon: "◆", title: "模板工坊", desc: "百变角色预设", color: "#d8a657" },
-  { icon: "◈", title: "智能客服", desc: "一键嵌入站点", color: "#6d7fb6" }
-];
+  { icon: '◇', title: 'AI 魔法对话', desc: '多模型智能问答', color: '#7dd8c7' },
+  { icon: '◆', title: '模板工坊', desc: '百变角色预设', color: '#d8a657' },
+  { icon: '◈', title: '智能客服', desc: '一键嵌入站点', color: '#6d7fb6' }
+]
 
 const typedText = computed(() => {
-  return text.value.slice(0, currentTextIndex.value);
-});
+  return text.value.slice(0, currentTextIndex.value)
+})
 
 const typingTimer = setInterval(() => {
   if (currentTextIndex.value < text.value.length) {
-    currentTextIndex.value++;
+    currentTextIndex.value++
   } else {
-    clearInterval(typingTimer);
+    clearInterval(typingTimer)
   }
-}, 100);
+}, 100)
 
 onUnmounted(() => {
-  clearInterval(typingTimer);
-});
+  clearInterval(typingTimer)
+})
 
 const loginData = reactive({
   // 登录数据
-  user: "",
-  password: ""
-});
+  user: '',
+  password: ''
+})
 
 const registerForm = reactive({
   // 注册数据
-  name: "",
-  user: "",
-  email: "",
-  password: "",
-  img_url: "",
-  confirmPassword: "",
+  name: '',
+  user: '',
+  email: '',
+  password: '',
+  img_url: '',
+  confirmPassword: '',
   // characterClass: '',
-  captcha: ""
-});
+  captcha: ''
+})
 
-const { selectFile, upImg } = useFileUpload(fileInput, registerForm, 0);
+const { selectFile, upImg } = useFileUpload(fileInput, registerForm, 0)
 
 const changeData = reactive({
   // 修改密码数据
-  user: "",
-  password: "",
-  newPassword: ""
-});
+  user: '',
+  password: '',
+  newPassword: ''
+})
 
 const resetData = reactive({
   // 重置密码数据
-  user: "",
-  email: ""
-});
+  user: '',
+  email: ''
+})
 
 const loginRules = reactive<FormRules>({
   user: [
-    { required: true, message: "请输入冒险者账号或者邮箱", trigger: "blur" },
+    { required: true, message: '请输入冒险者账号或者邮箱', trigger: 'blur' },
     {
       validator: (_rule: any, value: string, callback: Function) => {
         if (/[\u4e00-\u9fa5]/g.test(value)) {
-          callback(new Error("冒险者账号或邮箱不能使用中文"));
+          callback(new Error('冒险者账号或邮箱不能使用中文'))
         } else {
-          callback();
+          callback()
         }
       },
-      trigger: "blur"
+      trigger: 'blur'
     }
   ],
   password: [
-    { required: true, message: "请输入通行密令", trigger: "blur" },
-    { min: 6, message: "密令长度不能小于6位", trigger: "blur" },
+    { required: true, message: '请输入通行密令', trigger: 'blur' },
+    { min: 6, message: '密令长度不能小于6位', trigger: 'blur' },
     {
       validator: (_rule: any, value: string, callback: Function) => {
         if (/[\u4e00-\u9fa5]/g.test(value)) {
-          callback(new Error("密令不能使用中文"));
+          callback(new Error('密令不能使用中文'))
         } else {
-          callback();
+          callback()
         }
       },
-      trigger: "blur"
+      trigger: 'blur'
     }
   ]
-});
+})
 
 const registerRules = reactive<FormRules>({
   name: [
-    { required: true, message: "请输入冒险者名称", trigger: "blur" },
-    { min: 2, message: "名称长度不能小于2位", trigger: "blur" }
+    { required: true, message: '请输入冒险者名称', trigger: 'blur' },
+    { min: 2, message: '名称长度不能小于2位', trigger: 'blur' }
   ],
   user: [
-    { required: true, message: "请输入冒险者账号", trigger: "blur" },
+    { required: true, message: '请输入冒险者账号', trigger: 'blur' },
     {
       validator: (_rule: any, value: string, callback: Function) => {
         if (/[\u4e00-\u9fa5]/g.test(value)) {
-          callback(new Error("冒险者账号不能使用中文"));
+          callback(new Error('冒险者账号不能使用中文'))
         } else {
-          callback();
+          callback()
         }
       },
-      trigger: "blur"
+      trigger: 'blur'
     }
   ],
   email: [
-    { required: true, message: "请输入冒险者邮箱", trigger: "blur" },
+    { required: true, message: '请输入冒险者邮箱', trigger: 'blur' },
     {
       validator: (_rule: any, value: string, callback: Function) => {
         if (/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value)) {
-          callback();
+          callback()
         } else {
-          callback(new Error("邮箱格式错误"));
+          callback(new Error('邮箱格式错误'))
         }
       },
-      trigger: "blur"
+      trigger: 'blur'
     }
   ],
   password: [
-    { required: true, message: "请设置通行密令", trigger: "blur" },
-    { min: 6, message: "密令长度不能小于6位", trigger: "blur" },
+    { required: true, message: '请设置通行密令', trigger: 'blur' },
+    { min: 6, message: '密令长度不能小于6位', trigger: 'blur' },
     {
       validator: (_rule: any, value: string, callback: Function) => {
         if (/[\u4e00-\u9fa5]/g.test(value)) {
-          callback(new Error("密令不能使用中文"));
+          callback(new Error('密令不能使用中文'))
         } else {
-          callback();
+          callback()
         }
       },
-      trigger: "blur"
+      trigger: 'blur'
     }
   ],
   confirmPassword: [
-    { required: true, message: "请确认通行密令", trigger: "blur" },
+    { required: true, message: '请确认通行密令', trigger: 'blur' },
     {
       validator: (_rule: any, value: string, callback: Function) => {
         if (value !== registerForm.password) {
-          callback(new Error("两次输入的密令不一致"));
+          callback(new Error('两次输入的密令不一致'))
         } else {
-          callback();
+          callback()
         }
       },
-      trigger: "blur"
+      trigger: 'blur'
     }
   ],
   captcha: [
-    { required: true, message: "请输入验证码", trigger: "blur" },
+    { required: true, message: '请输入验证码', trigger: 'blur' },
     {
       validator: (_rule: any, value: string, callback: Function) => {
         if (/[\u4e00-\u9fa5]/g.test(value)) {
-          callback(new Error("验证码不能使用中文"));
+          callback(new Error('验证码不能使用中文'))
         } else {
-          callback();
+          callback()
         }
       },
-      trigger: "blur"
+      trigger: 'blur'
     }
   ]
-});
+})
 
 const changeRules = reactive<FormRules>({
-  user: [{ required: true, message: "请输入冒险者账号", trigger: "blur" }],
+  user: [{ required: true, message: '请输入冒险者账号', trigger: 'blur' }],
   password: [
-    { required: true, message: "请输入原通行密令", trigger: "blur" },
-    { min: 6, message: "密令长度不能小于6位", trigger: "blur" }
+    { required: true, message: '请输入原通行密令', trigger: 'blur' },
+    { min: 6, message: '密令长度不能小于6位', trigger: 'blur' }
   ],
   newPassword: [
-    { required: true, message: "请输入新通行密令", trigger: "blur" },
-    { min: 6, message: "密令长度不能小于6位", trigger: "blur" }
+    { required: true, message: '请输入新通行密令', trigger: 'blur' },
+    { min: 6, message: '密令长度不能小于6位', trigger: 'blur' }
   ]
-});
+})
 
 const resetRules = reactive<FormRules>({
-  user: [{ required: true, message: "请输入冒险者账号", trigger: "blur" }],
+  user: [{ required: true, message: '请输入冒险者账号', trigger: 'blur' }],
   email: [
-    { required: true, message: "请输入冒险者邮箱", trigger: "blur" },
+    { required: true, message: '请输入冒险者邮箱', trigger: 'blur' },
     {
       validator: (_rule: any, value: string, callback: Function) => {
         if (/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value)) {
-          callback();
+          callback()
         } else {
-          callback(new Error("邮箱格式错误"));
+          callback(new Error('邮箱格式错误'))
         }
       },
-      trigger: "blur"
+      trigger: 'blur'
     }
   ]
-});
+})
 
-const store = useStore();
-const pubKeyLoading = ref(true);
+const store = useStore()
+const pubKeyLoading = ref(true)
 
 // rsa加密
 const encrypt = (value: string) => {
   try {
-    const { pki, util } = forge;
-    const publicKeyObj = pki.publicKeyFromPem(pubKey.value);
-    const encryptedData = publicKeyObj.encrypt(
-      util.encodeUtf8(value),
-      "RSA-OAEP"
-    );
-    return forge.util.encode64(encryptedData);
+    const { pki, util } = forge
+    const publicKeyObj = pki.publicKeyFromPem(pubKey.value)
+    const encryptedData = publicKeyObj.encrypt(util.encodeUtf8(value), 'RSA-OAEP')
+    return forge.util.encode64(encryptedData)
   } catch (err) {
-    return err;
+    return err
   }
-};
+}
 
 // 注册或者登录
 const handleSubmit = async (formEl: FormInstance | undefined) => {
-  if (!formEl) return;
+  if (!formEl) return
   if (pubKeyLoading.value) {
     ElMessage({
-      message: "密钥加载中，请稍后再试",
-      type: "warning",
+      message: '密钥加载中，请稍后再试',
+      type: 'warning',
       offset: 200,
       plain: true
-    });
-    return;
+    })
+    return
   }
   await formEl.validate(valid => {
     if (valid) {
-      if (isUiModule.value == "login") {
-        isInvoke.value = true;
+      if (isUiModule.value == 'login') {
+        isInvoke.value = true
         const data = {
           user: encrypt(loginData.user),
           password: encrypt(loginData.password),
           freeLogin: freeLogin.value
-        };
+        }
         userApi.login(data).then(res => {
           if (res.data.code == 0) {
             ElNotification({
-              title: "冒险开始!",
-              message: "欢迎进入未来智匠AI世界，勇敢的冒险者！",
-              type: "success",
-              customClass: "pixel-notify"
-            });
-            store.setToken(res.data.token, freeLogin.value);
-            router.push("/mxcontent");
-            isInvoke.value = false;
+              title: '冒险开始!',
+              message: '欢迎进入未来智匠AI世界，勇敢的冒险者！',
+              type: 'success',
+              customClass: 'pixel-notify'
+            })
+            store.setToken(res.data.token, freeLogin.value)
+            router.push('/mxcontent')
+            isInvoke.value = false
           } else if (res.data.code == 1) {
             ElMessage({
-              message: "冒险者账号或者邮箱不存在",
-              type: "warning",
+              message: '冒险者账号或者邮箱不存在',
+              type: 'warning',
               offset: 200,
               plain: true
-            });
-            isInvoke.value = false;
+            })
+            isInvoke.value = false
           } else if (res.data.code == 2) {
             ElMessage({
-              message: "冒险者账号或者密令不正确",
-              type: "warning",
+              message: '冒险者账号或者密令不正确',
+              type: 'warning',
               offset: 200,
               plain: true
-            });
-            isInvoke.value = false;
+            })
+            isInvoke.value = false
           } else {
             ElMessage({
               message: res.data.msg,
-              type: "error",
+              type: 'error',
               offset: 200,
               plain: true
-            });
-            isInvoke.value = false;
+            })
+            isInvoke.value = false
           }
-        });
-      } else if (isUiModule.value == "register") {
+        })
+      } else if (isUiModule.value == 'register') {
         if (!registerForm.img_url) {
           ElMessage({
-            message: "请上传头像",
-            type: "warning",
+            message: '请上传头像',
+            type: 'warning',
             offset: 200,
             plain: true
-          });
-          return;
+          })
+          return
         }
-        isInvoke.value = true;
+        isInvoke.value = true
         userApi.register(registerForm).then(res => {
-          isInvoke.value = false;
+          isInvoke.value = false
           if (res.data.code == 0) {
             ElMessage({
-              message: "你已成功拥有冒险账册！",
-              type: "success",
+              message: '你已成功拥有冒险账册！',
+              type: 'success',
               offset: 200,
               plain: true
-            });
-            isUiModule.value = "login";
+            })
+            isUiModule.value = 'login'
           } else if (res.data.code == 1) {
             ElMessage({
-              message: "冒险者账号已存在",
-              type: "warning",
+              message: '冒险者账号已存在',
+              type: 'warning',
               offset: 200,
               plain: true
-            });
+            })
           } else {
             ElMessage({
               message: res.data.msg,
-              type: "error",
+              type: 'error',
               offset: 200,
               plain: true
-            });
-            refreshImg();
+            })
+            refreshImg()
           }
-        });
-      } else if (isUiModule.value == "newCode") {
-        isInvoke.value = true;
+        })
+      } else if (isUiModule.value == 'newCode') {
+        isInvoke.value = true
         const newData = {
           user: encrypt(changeData.user),
           password: encrypt(changeData.password),
           newPassword: encrypt(changeData.newPassword)
-        };
+        }
         userApi.changePassword(newData).then(res => {
-          isInvoke.value = false;
+          isInvoke.value = false
           if (res.data.code == 0) {
             ElMessage({
-              message: "通行密令修改成功",
-              type: "success",
+              message: '通行密令修改成功',
+              type: 'success',
               offset: 200,
               plain: true
-            });
-            changeData.user = "";
-            changeData.password = "";
-            changeData.newPassword = "";
-            if (formRef.value) formRef.value.resetFields();
-            isUiModule.value = "login";
+            })
+            changeData.user = ''
+            changeData.password = ''
+            changeData.newPassword = ''
+            if (formRef.value) formRef.value.resetFields()
+            isUiModule.value = 'login'
           } else {
-            isInvoke.value = false;
+            isInvoke.value = false
             ElMessage({
               message: res.data.msg,
-              type: "error",
+              type: 'error',
               offset: 200,
               plain: true
-            });
+            })
           }
-        });
+        })
       } else {
-        isInvoke.value = true;
+        isInvoke.value = true
         userApi.resetPassword(resetData).then(res => {
-          isInvoke.value = false;
+          isInvoke.value = false
           if (res.data.code == 0) {
             ElMessage({
-              message: "通行密令重置成功，请前往邮箱查看",
-              type: "success",
+              message: '通行密令重置成功，请前往邮箱查看',
+              type: 'success',
               offset: 200,
               plain: true
-            });
-            isUiModule.value = "login";
+            })
+            isUiModule.value = 'login'
           } else {
-            isInvoke.value = false;
+            isInvoke.value = false
             ElMessage({
               message: res.data.msg,
-              type: "error",
+              type: 'error',
               offset: 200,
               plain: true
-            });
+            })
           }
-        });
+        })
       }
     }
-  });
-};
+  })
+}
 
 const switchMode = (module: string) => {
-  isUiModule.value = module;
-  if (isUiModule.value == "register") {
-    refreshImg();
+  isUiModule.value = module
+  if (isUiModule.value == 'register') {
+    refreshImg()
   }
   if (formRef.value) {
-    formRef.value.resetFields();
+    formRef.value.resetFields()
   }
-};
+}
 
 // 验证码生成
 const refreshImg = () => {
   userApi.captcha().then(res => {
     if (res.data.code == 0) {
-      svgSrc.value = res.data.imgData;
+      svgSrc.value = res.data.imgData
     } else {
       ElMessage({
         message: res.data.msg,
-        type: "error",
+        type: 'error',
         offset: 200,
         plain: true
-      });
+      })
     }
-  });
-};
+  })
+}
 
 const openDialog = () => {
-  dialogVisible.value = true;
-};
+  dialogVisible.value = true
+}
 
 // 密码修改或重置
 const editCipher = (type: string) => {
-  isUiModule.value = type;
+  isUiModule.value = type
   if (formRef.value) {
-    formRef.value.resetFields();
+    formRef.value.resetFields()
   }
-};
+}
 
 onMounted(() => {
-  if (store.token && store.freeEntry == "true") {
-    router.replace("/intelligence");
-    return;
+  if (store.token && store.freeEntry == 'true') {
+    router.replace('/intelligence')
+    return
   }
   userApi
     .publicKey()
     .then(res => {
-      pubKey.value = res.data.key;
+      pubKey.value = res.data.key
     })
     .finally(() => {
-      pubKeyLoading.value = false;
-    });
-});
+      pubKeyLoading.value = false
+    })
+})
 </script>
 
 <template>
@@ -474,9 +468,7 @@ onMounted(() => {
       <span class="text">{{ typedText }}</span>
     </div>
     <div class="btn ml-120">
-      <div class="btn-default login pixel-btn" @click="openDialog">
-        开启旅途
-      </div>
+      <div class="btn-default login pixel-btn" @click="openDialog">开启旅途</div>
     </div>
     <div class="features ml-120">
       <div
@@ -498,18 +490,14 @@ onMounted(() => {
     <div class="bottom-bar">
       <span class="bar-item"> <span class="bar-icon">◆</span> 未来智匠 </span>
       <span class="bar-divider">◇</span>
-      <span class="bar-item">
-        <span class="bar-icon">◆</span> AI 冒险世界
-      </span>
+      <span class="bar-item"> <span class="bar-icon">◆</span> AI 冒险世界 </span>
       <span class="bar-divider">◇</span>
       <span class="bar-item"> <span class="bar-icon">◆</span> 静候勇者 </span>
     </div>
     <el-dialog
       v-model="dialogVisible"
       :width="
-        isUiModule == 'login' ||
-        isUiModule == 'resetPassword' ||
-        isUiModule == 'newCode'
+        isUiModule == 'login' || isUiModule == 'resetPassword' || isUiModule == 'newCode'
           ? '400px'
           : '500px'
       "
@@ -528,22 +516,22 @@ onMounted(() => {
             </div>
             <h2>
               {{
-                isUiModule == "login"
-                  ? "冒险者归来"
-                  : isUiModule == "register"
-                    ? "开启冒险之旅"
-                    : isUiModule == "newCode"
-                      ? "修改密令"
-                      : "重置密令"
+                isUiModule == 'login'
+                  ? '冒险者归来'
+                  : isUiModule == 'register'
+                    ? '开启冒险之旅'
+                    : isUiModule == 'newCode'
+                      ? '修改密令'
+                      : '重置密令'
               }}
             </h2>
             <p>
               {{
-                isUiModule == "login"
-                  ? "欢迎回到这片神奇的大陆"
-                  : isUiModule == "register"
-                    ? "准备好开始你的传奇了吗？"
-                    : "请输入你的信息"
+                isUiModule == 'login'
+                  ? '欢迎回到这片神奇的大陆'
+                  : isUiModule == 'register'
+                    ? '准备好开始你的传奇了吗？'
+                    : '请输入你的信息'
               }}
             </p>
           </div>
@@ -559,11 +547,7 @@ onMounted(() => {
           @keyup.enter="handleSubmit(formRef)"
         >
           <el-form-item prop="user">
-            <el-input
-              v-model="loginData.user"
-              :prefix-icon="User"
-              placeholder="冒险者账号或邮箱"
-            />
+            <el-input v-model="loginData.user" :prefix-icon="User" placeholder="冒险者账号或邮箱" />
           </el-form-item>
 
           <el-form-item prop="password">
@@ -584,12 +568,8 @@ onMounted(() => {
               <span class="toggle-text">30日内记住冒险者</span>
             </div>
             <div>
-              <a class="forgot-link amend" @click="editCipher('newCode')"
-                >修改密令！</a
-              >
-              <a class="forgot-link" @click="editCipher('resetPassword')"
-                >遗失密令？</a
-              >
+              <a class="forgot-link amend" @click="editCipher('newCode')">修改密令！</a>
+              <a class="forgot-link" @click="editCipher('resetPassword')">遗失密令？</a>
             </div>
           </div>
 
@@ -603,9 +583,7 @@ onMounted(() => {
           </el-button>
 
           <div class="switch-mode">
-            初来乍到？<a @click="switchMode('register')" class="switch-link"
-              >创建冒险者档案</a
-            >
+            初来乍到？<a @click="switchMode('register')" class="switch-link">创建冒险者档案</a>
           </div>
         </el-form>
 
@@ -621,9 +599,7 @@ onMounted(() => {
           <div class="portrait">
             <div class="avatar">头像</div>
             <div class="avatar-img" @click="selectFile">
-              <el-icon :size="20" color="#4a7c3f" v-if="!registerForm.img_url"
-                ><Plus
-              /></el-icon>
+              <el-icon :size="20" color="#4a7c3f" v-if="!registerForm.img_url"><Plus /></el-icon>
               <img v-else :src="registerForm.img_url" alt="" />
               <input type="file" ref="fileInput" @change="upImg" />
             </div>
@@ -693,9 +669,7 @@ onMounted(() => {
           </el-button>
 
           <div class="switch-mode">
-            已有账册？<a @click="switchMode('login')" class="switch-link"
-              >返回登录</a
-            >
+            已有账册？<a @click="switchMode('login')" class="switch-link">返回登录</a>
           </div>
         </el-form>
 
@@ -709,11 +683,7 @@ onMounted(() => {
           @keyup.enter="handleSubmit(formRef)"
         >
           <el-form-item prop="user">
-            <el-input
-              v-model="changeData.user"
-              :prefix-icon="User"
-              placeholder="冒险者账号"
-            />
+            <el-input v-model="changeData.user" :prefix-icon="User" placeholder="冒险者账号" />
           </el-form-item>
 
           <el-form-item prop="password">
@@ -760,19 +730,11 @@ onMounted(() => {
           @keyup.enter="handleSubmit(formRef)"
         >
           <el-form-item prop="user">
-            <el-input
-              v-model="resetData.user"
-              :prefix-icon="User"
-              placeholder="冒险者账号"
-            />
+            <el-input v-model="resetData.user" :prefix-icon="User" placeholder="冒险者账号" />
           </el-form-item>
 
           <el-form-item prop="email">
-            <el-input
-              v-model="resetData.email"
-              :prefix-icon="Message"
-              placeholder="邮箱账号"
-            />
+            <el-input v-model="resetData.email" :prefix-icon="Message" placeholder="邮箱账号" />
           </el-form-item>
 
           <el-button
@@ -794,7 +756,7 @@ onMounted(() => {
 </template>
 
 <style lang="scss" scoped>
-@use "sass:color";
+@use 'sass:color';
 
 /* 精致奇幻像素游戏风格配色 */
 $neon-cyan: #7dd8c7;
@@ -823,21 +785,9 @@ h2 {
   width: 100vw;
   height: 100vh;
   background:
-    radial-gradient(
-      ellipse at 20% 80%,
-      rgba($neon-magenta, 0.15) 0%,
-      transparent 50%
-    ),
-    radial-gradient(
-      ellipse at 80% 20%,
-      rgba($neon-cyan, 0.15) 0%,
-      transparent 50%
-    ),
-    radial-gradient(
-      ellipse at 50% 50%,
-      rgba($neon-purple, 0.1) 0%,
-      transparent 70%
-    ),
+    radial-gradient(ellipse at 20% 80%, rgba($neon-magenta, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba($neon-cyan, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba($neon-purple, 0.1) 0%, transparent 70%),
     linear-gradient(180deg, #0a0a12 0%, #12121f 50%, #0a0a12 100%);
   position: relative;
   overflow: hidden;
@@ -870,52 +820,32 @@ h2 {
       animation: neon-twinkle 2s ease-in-out infinite;
 
       &::before {
-        content: "";
+        content: '';
         position: absolute;
         width: 6px;
         height: 2px;
-        background: linear-gradient(
-          90deg,
-          transparent,
-          rgba($neon-cyan, 0.8),
-          transparent
-        );
+        background: linear-gradient(90deg, transparent, rgba($neon-cyan, 0.8), transparent);
         top: 0;
         left: -2px;
       }
 
       &::after {
-        content: "";
+        content: '';
         position: absolute;
         width: 2px;
         height: 6px;
-        background: linear-gradient(
-          180deg,
-          transparent,
-          rgba($neon-cyan, 0.8),
-          transparent
-        );
+        background: linear-gradient(180deg, transparent, rgba($neon-cyan, 0.8), transparent);
         left: 0;
         top: -2px;
       }
 
       &:nth-child(odd) {
         &::before {
-          background: linear-gradient(
-            90deg,
-            transparent,
-            rgba($neon-magenta, 0.8),
-            transparent
-          );
+          background: linear-gradient(90deg, transparent, rgba($neon-magenta, 0.8), transparent);
         }
 
         &::after {
-          background: linear-gradient(
-            180deg,
-            transparent,
-            rgba($neon-magenta, 0.8),
-            transparent
-          );
+          background: linear-gradient(180deg, transparent, rgba($neon-magenta, 0.8), transparent);
         }
       }
     }
@@ -928,6 +858,7 @@ h2 {
     opacity: 0.3;
     transform: scale(0.8);
   }
+
   50% {
     opacity: 1;
     transform: scale(1.5);
@@ -1009,6 +940,7 @@ h2 {
   100% {
     background-position: 0% 50%;
   }
+
   50% {
     background-position: 100% 50%;
   }
@@ -1016,7 +948,7 @@ h2 {
 
 .text {
   color: $neon-cyan-light;
-  font-family: myFirstFont, "Clash Grotesk";
+  font-family: myFirstFont, 'Clash Grotesk';
   font-size: 30px;
   font-weight: 500;
   text-align: center;
@@ -1028,7 +960,7 @@ h2 {
 
 .text::after {
   display: inline-block;
-  content: "▮";
+  content: '▮';
   color: $neon-magenta;
   animation: cursor-blink 0.8s step-end infinite;
   margin-left: 4px;
@@ -1042,6 +974,7 @@ h2 {
   50% {
     opacity: 1;
   }
+
   51%,
   100% {
     opacity: 0;
@@ -1108,7 +1041,7 @@ h2 {
   );
 
   &::before {
-    content: "";
+    content: '';
     position: absolute;
     inset: 0;
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent);
@@ -1259,16 +1192,10 @@ h2 {
 
       /* 霓虹边框效果 */
       &::before {
-        content: "";
+        content: '';
         position: absolute;
         inset: -2px;
-        background: linear-gradient(
-          135deg,
-          $neon-cyan,
-          $neon-magenta,
-          $neon-purple,
-          $neon-cyan
-        );
+        background: linear-gradient(135deg, $neon-cyan, $neon-magenta, $neon-purple, $neon-cyan);
         background-size: 300% 300%;
         animation: border-glow 4s ease infinite;
         z-index: -1;
@@ -1290,7 +1217,7 @@ h2 {
 
       /* 内部遮罩 */
       &::after {
-        content: "";
+        content: '';
         position: absolute;
         inset: 2px;
         background: $pixel-dialog-bg;
@@ -1341,6 +1268,7 @@ h2 {
   100% {
     background-position: 0% 50%;
   }
+
   50% {
     background-position: 100% 50%;
   }
@@ -1388,7 +1316,7 @@ h2 {
 
       &::before,
       &::after {
-        content: "══════════════";
+        content: '══════════════';
         display: block;
         background: linear-gradient(
           90deg,
@@ -1424,7 +1352,7 @@ h2 {
       -webkit-text-fill-color: transparent;
       background-clip: text;
       filter: drop-shadow(0 0 10px rgba($neon-cyan, 0.5));
-      font-family: "Noto Sans JP", sans-serif;
+      font-family: 'Noto Sans JP', sans-serif;
     }
 
     p {
@@ -1492,6 +1420,7 @@ h2 {
         cursor: pointer;
         user-select: none;
         transition: filter 0.2s ease;
+
         &:hover {
           filter: brightness(1.1);
         }
@@ -1712,11 +1641,7 @@ h2 {
   height: 60px;
   border-radius: 0;
   margin-left: 12px;
-  background: linear-gradient(
-    135deg,
-    rgba($neon-cyan, 0.2),
-    rgba($neon-magenta, 0.2)
-  );
+  background: linear-gradient(135deg, rgba($neon-cyan, 0.2), rgba($neon-magenta, 0.2));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1746,11 +1671,7 @@ h2 {
 }
 
 .avatar-img:hover {
-  background: linear-gradient(
-    135deg,
-    rgba($neon-cyan, 0.4),
-    rgba($neon-magenta, 0.4)
-  );
+  background: linear-gradient(135deg, rgba($neon-cyan, 0.4), rgba($neon-magenta, 0.4));
   border-color: $neon-cyan;
   box-shadow:
     0 0 15px rgba($neon-cyan, 0.5),

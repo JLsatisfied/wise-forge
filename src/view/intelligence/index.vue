@@ -1,23 +1,23 @@
 <script setup lang="ts">
-import { reactive, ref, onMounted, watch, nextTick, onUnmounted } from "vue";
+import { reactive, ref, onMounted, watch, nextTick, onUnmounted } from 'vue'
 // import MarkdownIt from 'markdown-it'
 // import mdKatex from '@traptitech/markdown-it-katex'
 // import hljs from 'highlight.js';
 // import vue from 'highlight.js/lib/languages/xml';
 // import react from 'highlight.js/lib/languages/xml';
 // import xml from 'highlight.js/lib/languages/xml';
-import "highlight.js/styles/a11y-dark.css";
-import { fetchEventSource } from "@microsoft/fetch-event-source";
-import Clipboard from "clipboard";
-import { aicgApi } from "@/api/aicg.ts";
-import { userApi } from "@/api/user.ts";
-import TemplateDialog from "./components/TemplateDialog.vue";
-import UserProfileModal from "./components/UserProfileModal.vue";
-import NavBar from "./components/NavBar.vue";
-import SideBar from "./components/SideBar.vue";
-import ChatMessageItem from "./components/ChatMessageItem.vue";
-import ChatInput from "./components/ChatInput.vue";
-import { useRouter } from "vue-router";
+import 'highlight.js/styles/a11y-dark.css'
+import { fetchEventSource } from '@microsoft/fetch-event-source'
+import Clipboard from 'clipboard'
+import { aicgApi } from '@/api/aicg.ts'
+import { userApi } from '@/api/user.ts'
+import TemplateDialog from './components/TemplateDialog.vue'
+import UserProfileModal from './components/UserProfileModal.vue'
+import NavBar from './components/NavBar.vue'
+import SideBar from './components/SideBar.vue'
+import ChatMessageItem from './components/ChatMessageItem.vue'
+import ChatInput from './components/ChatInput.vue'
+import { useRouter } from 'vue-router'
 import {
   allInstall,
   categories,
@@ -26,275 +26,271 @@ import {
   templateObject,
   aiModelsObject,
   requestObject
-} from "@/utils/types/ai";
-import { BASE_URL } from "@/utils/http/config";
-import { useStore } from "@/store/index";
-import useFileUpload from "@/composables/useFileUpload";
-import useSpeech from "@/composables/useSpeech";
+} from '@/utils/types/ai'
+import { BASE_URL } from '@/utils/http/config'
+import { useStore } from '@/store/index'
+import useFileUpload from '@/composables/useFileUpload'
+import useSpeech from '@/composables/useSpeech'
 
 // hljs.registerLanguage('vue', vue);
 // hljs.registerLanguage('react', react);
 // hljs.registerLanguage('xml', xml);
 
+defineOptions({
+  name: 'IntelligencePage'
+})
+
 // Worker 懒加载 + 消息队列，避免模块初始化时阻塞首屏渲染
-let _worker: Worker | null = null;
-const _workerPendingQueue: Array<(value: string) => void> = [];
+let _worker: Worker | null = null
+const _workerPendingQueue: Array<(value: string) => void> = []
 const getWorker = (): Worker => {
   if (!_worker) {
-    _worker = new Worker(new URL("./worker.js", import.meta.url), {
-      type: "module"
-    });
+    _worker = new Worker(new URL('./worker.js', import.meta.url), {
+      type: 'module'
+    })
     _worker.onmessage = e => {
-      const resolve = _workerPendingQueue.shift();
-      if (resolve) resolve(e.data);
-    };
+      const resolve = _workerPendingQueue.shift()
+      if (resolve) resolve(e.data)
+    }
   }
-  return _worker;
-};
+  return _worker
+}
 
 const CONSTATNS = {
   // API相关
   API: {
     BASE_URL: BASE_URL,
-    DEEPSEEK_MODULE: "deepseekMoudle",
-    CHAT_COMPLETIONS: "/api/v1/chat/completions",
-    AUTH_TOKEN: "yUDjNwVwNQrHsLFhhBsb:dkfswmKhaaxrGARTTgJG"
+    DEEPSEEK_MODULE: 'deepseekMoudle',
+    CHAT_COMPLETIONS: '/api/v1/chat/completions',
+    AUTH_TOKEN: 'yUDjNwVwNQrHsLFhhBsb:dkfswmKhaaxrGARTTgJG'
   },
   // 模型相关
   MODELS: {
-    DEEPSEEK_V3: "deepseek-v4-flash",
-    SPARK_ULTRA: "spark-pro",
-    DEFAULT_MODULE: "deepseek-v4-flash", // deepseek快速模式
-    REASONER_MODULE: "deepseek-reasoner" // deepseek思考模式
+    DEEPSEEK_V3: 'deepseek-v4-flash',
+    SPARK_ULTRA: 'spark-pro',
+    DEFAULT_MODULE: 'deepseek-v4-flash', // deepseek快速模式
+    REASONER_MODULE: 'deepseek-reasoner' // deepseek思考模式
   },
   // 消息提示
   MESSAGES: {
-    COPY_SUCCESS: "铭文已复制",
-    COPY_FAILED: "铭文复制失败",
-    INPUT_REQUIRED: "冒险者，请输入你的疑问",
-    ANSWERING: "回答中，请稍后再试",
-    CLEAR_DISABLED: "回答中，无法清除冒险日志，请先停止输出",
-    NO_MESSAGES: "没有冒险日志可以清除",
-    SERVER_ERROR: "魔法塔繁忙，请稍后再试",
-    REASONER_ONLY: "只允许 DeepSeek 模型使用贤者沉思模式",
-    MODEL_SWITCH_DISABLED: "此次冒险只能使用 Spark Pro 大模型",
-    REASONER_NOT_SUPPORTED: "Spark Pro 模型不支持贤者沉思",
-    DOWNLOAD_SUCCESS: "卷轴导出成功",
-    DOWNLOAD_FAILED: "卷轴导出失败，请重试",
-    DELETE_SUCCESS: "冒险日志已删除"
+    COPY_SUCCESS: '铭文已复制',
+    COPY_FAILED: '铭文复制失败',
+    INPUT_REQUIRED: '冒险者，请输入你的疑问',
+    ANSWERING: '回答中，请稍后再试',
+    CLEAR_DISABLED: '回答中，无法清除冒险日志，请先停止输出',
+    NO_MESSAGES: '没有冒险日志可以清除',
+    SERVER_ERROR: '魔法塔繁忙，请稍后再试',
+    REASONER_ONLY: '只允许 DeepSeek 模型使用贤者沉思模式',
+    MODEL_SWITCH_DISABLED: '此次冒险只能使用 Spark Pro 大模型',
+    REASONER_NOT_SUPPORTED: 'Spark Pro 模型不支持贤者沉思',
+    DOWNLOAD_SUCCESS: '卷轴导出成功',
+    DOWNLOAD_FAILED: '卷轴导出失败，请重试',
+    DELETE_SUCCESS: '冒险日志已删除'
   },
   // 默认配置
   DEFAULT: {
-    AI_AVATAR:
-      "https://ai-public.mastergo.com/ai/img_res/62f8190121cf7f46c510bfc3910b9518.jpg",
-    USER_AVATAR:
-      "https://ai-public.mastergo.com/ai/img_res/838a4ab73af1c2e4de9e11a5ce843075.jpg",
-    AI_NAME: "冒险AI助手",
+    AI_AVATAR: 'https://ai-public.mastergo.com/ai/img_res/62f8190121cf7f46c510bfc3910b9518.jpg',
+    USER_AVATAR: 'https://ai-public.mastergo.com/ai/img_res/838a4ab73af1c2e4de9e11a5ce843075.jpg',
+    AI_NAME: '冒险AI助手',
     PAGE_SIZE: 3,
     PROMPT_VALUE: 200
   }
-};
+}
 
-defineOptions({
-  name: "customer-service"
-});
-
-let aiAvatarUrl = ref(CONSTATNS.DEFAULT.AI_AVATAR);
+let aiAvatarUrl = ref(CONSTATNS.DEFAULT.AI_AVATAR)
 // 用户信息
 const nickAll = reactive({
-  nickname: "",
+  nickname: '',
   nicknameId: 0,
   nickImg: CONSTATNS.DEFAULT.USER_AVATAR,
-  appid: "",
-  userNickname: ""
-});
-let showUserProfile = ref(false); //是否显示个人信息
+  appid: '',
+  userNickname: ''
+})
+let showUserProfile = ref(false) //是否显示个人信息
 
-const contentText = ref(""); // 文字输入
-let allText: allInstall[] = reactive([]); // 对话内容
+const contentText = ref('') // 文字输入
+let allText: allInstall[] = reactive([]) // 对话内容
 
-let isGenerate = ref(false);
-let imgCurrent = ref("");
+let isGenerate = ref(false)
+let imgCurrent = ref('')
 
-const akiText = ref("");
-const isAskText = ref(false);
+const akiText = ref('')
+const isAskText = ref(false)
 
-const timeCount = ref(0);
-const chatContainer = ref<null | HTMLElement>(null);
-const textareaDialogue = ref<null | HTMLElement>(null);
-const markdownContent = ref("");
-const serviceThinkContent = ref("");
-const isAnswering = ref(false); // 是否可以enter
-const ctrl = ref<null | AbortController>(null);
-const isStopText = ref(false); // 是否显示中断文字
-let clipboard = ref<ClipboardJS>();
-const isTyping = ref(false); //是否输入中
-let categoryData: categories[] = reactive([]);
-const currentIndex = ref(0); // AI选中
-const roleContent = ref(""); // 大模型描述
-const recordLength = ref(0); // 对话信息长度
-const dialogTableVisible = ref(false); // 大模型选择弹窗
+const timeCount = ref(0)
+const chatContainer = ref<null | HTMLElement>(null)
+const textareaDialogue = ref<null | HTMLElement>(null)
+const markdownContent = ref('')
+const serviceThinkContent = ref('')
+const isAnswering = ref(false) // 是否可以enter
+const ctrl = ref<null | AbortController>(null)
+const isStopText = ref(false) // 是否显示中断文字
+let clipboard = ref<ClipboardJS>()
+const isTyping = ref(false) //是否输入中
+let categoryData: categories[] = reactive([])
+const currentIndex = ref(0) // AI选中
+const roleContent = ref('') // 大模型描述
+const recordLength = ref(0) // 对话信息长度
+const dialogTableVisible = ref(false) // 大模型选择弹窗
 const revealAlways = ref({
   revealId: 0,
   revealName: CONSTATNS.DEFAULT.AI_NAME,
   revealImg: CONSTATNS.DEFAULT.AI_AVATAR
-});
-let promptList: promptObject[] = reactive([]);
-const promptIndex = ref(0);
-let templateList: templateObject[] = reactive([]);
-const router = useRouter();
-let promptValue = ref(CONSTATNS.DEFAULT.PROMPT_VALUE);
-let hoveredIndex = ref<number | null>(null);
-const disabled = ref(false);
-let page = ref(1); // 当前页数
-let pageSize = ref(CONSTATNS.DEFAULT.PAGE_SIZE); // 每页展示条目
-let total = ref(0); // 总条数
-let editIndex = ref(-1);
-let editText = ref("");
-let currentModel = ref(CONSTATNS.MODELS.DEEPSEEK_V3);
+})
+let promptList: promptObject[] = reactive([])
+const promptIndex = ref(0)
+let templateList: templateObject[] = reactive([])
+const router = useRouter()
+let promptValue = ref(CONSTATNS.DEFAULT.PROMPT_VALUE)
+let hoveredIndex = ref<number | null>(null)
+const disabled = ref(false)
+let page = ref(1) // 当前页数
+let pageSize = ref(CONSTATNS.DEFAULT.PAGE_SIZE) // 每页展示条目
+let total = ref(0) // 总条数
+let editIndex = ref(-1)
+let editText = ref('')
+let currentModel = ref(CONSTATNS.MODELS.DEEPSEEK_V3)
 let aiModels: aiModelsObject[] = reactive([
-  { id: CONSTATNS.MODELS.DEEPSEEK_V3, name: "DeepSeek-V3" },
-  { id: CONSTATNS.MODELS.SPARK_ULTRA, name: "Spark Pro" }
-]);
-let isDisabled = ref(true);
+  { id: CONSTATNS.MODELS.DEEPSEEK_V3, name: 'DeepSeek-V3' },
+  { id: CONSTATNS.MODELS.SPARK_ULTRA, name: 'Spark Pro' }
+])
+let isDisabled = ref(true)
 
-let fileInput = ref<null | HTMLInputElement>(null); // 文件上传input
+let fileInput = ref<null | HTMLInputElement>(null) // 文件上传input
 
 let editAll = ref<{ img_url?: string; nickname?: string; username?: string }>({
-  img_url: "",
-  nickname: "",
-  username: ""
-});
+  img_url: '',
+  nickname: '',
+  username: ''
+})
 
 // 滚动条参数
-let closeScroll = ref(false);
-let lastScrollPosition = ref(0);
+let closeScroll = ref(false)
+let lastScrollPosition = ref(0)
 
-let isDeepThinking = ref(false);
-let isLoadingCategories = ref(true);
-let apiModuleId = ref(CONSTATNS.MODELS.DEFAULT_MODULE);
-let requestContent: requestObject[] = reactive([]);
-let responce = "";
+let isDeepThinking = ref(false)
+let isLoadingCategories = ref(true)
+let apiModuleId = ref(CONSTATNS.MODELS.DEFAULT_MODULE)
+let requestContent: requestObject[] = reactive([])
+let responce = ''
 
-let downloadClickHandler: ((e: MouseEvent) => void) | null = null;
-let _scrollRafId: number | null = null;
+let downloadClickHandler: ((e: MouseEvent) => void) | null = null
+let _scrollRafId: number | null = null
 
 // 文件上传参数
 let filenameAll = ref({
   isFileContent: false,
-  name: "",
-  size: "",
-  type: "",
-  status: "1", // 1:上传中, 2:上传成功, 3:上传失败
-  url: ""
-});
-let wordOrpdfText = ref("");
+  name: '',
+  size: '',
+  type: '',
+  status: '1', // 1:上传中, 2:上传成功, 3:上传失败
+  url: ''
+})
+let wordOrpdfText = ref('')
 
-const { selectFile, upImg } = useFileUpload(fileInput, editAll, 1);
-const { speakingIndex, speak, stop: stopSpeech } = useSpeech();
+const { selectFile, upImg } = useFileUpload(fileInput, editAll, 1)
+const { speakingIndex, speak, stop: stopSpeech } = useSpeech()
 
 onMounted(() => {
-  getUser();
-  chatContainer.value?.addEventListener("scroll", windowScroll, {
+  getUser()
+  chatContainer.value?.addEventListener('scroll', windowScroll, {
     passive: true
-  });
+  })
 
   // 代码块下载/复制按钮点击代理，限定在聊天容器内，避免全 document 监听
   downloadClickHandler = (e: MouseEvent) => {
-    const target = (e.target as HTMLElement).closest(
-      "[data-code]"
-    ) as HTMLElement | null;
+    const target = (e.target as HTMLElement).closest('[data-code]') as HTMLElement | null
     if (target) {
-      const encodedCode = target.getAttribute("data-code") || "";
-      const lang = target.getAttribute("data-lang") || "";
-      downloadCode(encodedCode, lang);
+      const encodedCode = target.getAttribute('data-code') || ''
+      const lang = target.getAttribute('data-lang') || ''
+      downloadCode(encodedCode, lang)
     }
-  };
-  chatContainer.value?.addEventListener("click", downloadClickHandler);
-});
+  }
+  chatContainer.value?.addEventListener('click', downloadClickHandler)
+})
 
 onUnmounted(() => {
   if (_scrollRafId !== null) {
-    cancelAnimationFrame(_scrollRafId);
-    _scrollRafId = null;
+    cancelAnimationFrame(_scrollRafId)
+    _scrollRafId = null
   }
   if (downloadClickHandler) {
-    chatContainer.value?.removeEventListener("click", downloadClickHandler);
+    chatContainer.value?.removeEventListener('click', downloadClickHandler)
   }
-  chatContainer.value?.removeEventListener("scroll", windowScroll);
+  chatContainer.value?.removeEventListener('scroll', windowScroll)
   if (clipboard.value) {
-    clipboard.value.destroy();
+    clipboard.value.destroy()
   }
-  stopSpeech();
-});
+  stopSpeech()
+})
 
 const windowScroll = () => {
-  if (_scrollRafId !== null) return;
+  if (_scrollRafId !== null) return
   _scrollRafId = requestAnimationFrame(() => {
-    _scrollRafId = null;
-    const el = chatContainer.value;
-    if (!el) return;
-    const currentScroll = el.scrollTop;
-    const direction = currentScroll > lastScrollPosition.value ? "down" : "up";
-    lastScrollPosition.value = currentScroll;
-    if (direction == "up") {
-      closeScroll.value = true;
+    _scrollRafId = null
+    const el = chatContainer.value
+    if (!el) return
+    const currentScroll = el.scrollTop
+    const direction = currentScroll > lastScrollPosition.value ? 'down' : 'up'
+    lastScrollPosition.value = currentScroll
+    if (direction == 'up') {
+      closeScroll.value = true
     }
-  });
-};
+  })
+}
 
 // 统一消息提示
 const showMessage = (
   message: string,
-  type: "success" | "warning" | "error" | "info" = "info",
+  type: 'success' | 'warning' | 'error' | 'info' = 'info',
   options: Record<string, unknown> = {}
 ) => {
   ElMessage({
     message,
     type,
-    customClass: "ele-text",
+    customClass: 'ele-text',
     plain: true,
     ...options
-  });
-};
+  })
+}
 
 // 获取用户信息
 const getUser = (showClassInformation: boolean = true) => {
   userApi.getUserData().then(res => {
     if (res.data.code == 0) {
-      const { id, nickname, img_url, appid, username } = res.data.users;
-      nickAll.nicknameId = id;
-      nickAll.nickname = nickname;
-      nickAll.nickImg = img_url;
-      nickAll.appid = appid;
-      nickAll.userNickname = username;
-      editAll.value = res.data.users;
+      const { id, nickname, img_url, appid, username } = res.data.users
+      nickAll.nicknameId = id
+      nickAll.nickname = nickname
+      nickAll.nickImg = img_url
+      nickAll.appid = appid
+      nickAll.userNickname = username
+      editAll.value = res.data.users
       if (showClassInformation) {
-        getClassInformation(nickAll.nicknameId);
+        getClassInformation(nickAll.nicknameId)
       }
     } else {
-      showMessage(res.data.msg, "error");
+      showMessage(res.data.msg, 'error')
     }
-  });
-};
+  })
+}
 
 // 获取用户所有大模型分类
 const getClassInformation = (id: number) => {
-  isLoadingCategories.value = true;
+  isLoadingCategories.value = true
   aicgApi
     .queryCategory({ user_id: id })
     .then(res => {
       if (res.data.code == 0) {
-        categoryData.splice(0, categoryData.length);
-        categoryData.push(...res.data.data);
+        categoryData.splice(0, categoryData.length)
+        categoryData.push(...res.data.data)
       } else {
-        showMessage(res.data.msg, "error");
+        showMessage(res.data.msg, 'error')
       }
     })
     .finally(() => {
-      isLoadingCategories.value = false;
-    });
-};
+      isLoadingCategories.value = false
+    })
+}
 
 // 富文本展示
 // const mdi = new MarkdownIt({
@@ -323,35 +319,35 @@ const getClassInformation = (id: number) => {
 const downloadCode = (encodedCode: string, language: string) => {
   try {
     // 解码 Base64 编码的代码
-    const binaryString = atob(encodedCode);
-    const bytes = new Uint8Array(binaryString.length);
+    const binaryString = atob(encodedCode)
+    const bytes = new Uint8Array(binaryString.length)
     for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
+      bytes[i] = binaryString.charCodeAt(i)
     }
-    const code = new TextDecoder().decode(bytes);
+    const code = new TextDecoder().decode(bytes)
 
-    const blob = new Blob([code], { type: "text/plain" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    let targetLanguage = "";
-    if (language == "javascript") {
-      targetLanguage = "js";
-    } else if (language == "typescript") {
-      targetLanguage = "ts";
+    const blob = new Blob([code], { type: 'text/plain' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    let targetLanguage = ''
+    if (language == 'javascript') {
+      targetLanguage = 'js'
+    } else if (language == 'typescript') {
+      targetLanguage = 'ts'
     } else {
-      targetLanguage = language;
+      targetLanguage = language
     }
-    a.href = url;
-    a.download = `code.${targetLanguage}`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-    showMessage(CONSTATNS.MESSAGES.DOWNLOAD_SUCCESS, "success");
+    a.href = url
+    a.download = `code.${targetLanguage}`
+    document.body.appendChild(a)
+    a.click()
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
+    showMessage(CONSTATNS.MESSAGES.DOWNLOAD_SUCCESS, 'success')
   } catch {
-    showMessage(CONSTATNS.MESSAGES.DOWNLOAD_FAILED, "error");
+    showMessage(CONSTATNS.MESSAGES.DOWNLOAD_FAILED, 'error')
   }
-};
+}
 
 // 转化成HTML结构
 // const getMdiText = <T extends string>(value: T) => {
@@ -361,413 +357,403 @@ const downloadCode = (encodedCode: string, language: string) => {
 // 退出登录（调服务端拉黑 token + 本地清理）
 const outLogin = () => {
   userApi.logout().then(() => {
-    useStore().clearToken();
-    router.push("/");
-  });
-};
+    useStore().clearToken()
+    router.push('/')
+  })
+}
 
 // 切换大模型api
 const switchModel = (id: string) => {
   if (currentIndex.value) {
-    showMessage(CONSTATNS.MESSAGES.MODEL_SWITCH_DISABLED, "warning");
-    return;
+    showMessage(CONSTATNS.MESSAGES.MODEL_SWITCH_DISABLED, 'warning')
+    return
   }
-  if (currentModel.value !== id && apiModuleId.value == "deepseek-reasoner") {
-    showMessage(CONSTATNS.MESSAGES.REASONER_NOT_SUPPORTED, "warning");
-    return;
+  if (currentModel.value !== id && apiModuleId.value == 'deepseek-reasoner') {
+    showMessage(CONSTATNS.MESSAGES.REASONER_NOT_SUPPORTED, 'warning')
+    return
   }
-  currentModel.value = id;
-};
+  currentModel.value = id
+}
 
 // 复制功能
 const copyCode = (ele: string) => {
   if (clipboard.value) {
-    clipboard.value.destroy();
+    clipboard.value.destroy()
   }
-  clipboard.value = new Clipboard(ele);
-  clipboard.value.on("success", function () {
-    showMessage(CONSTATNS.MESSAGES.COPY_SUCCESS, "success");
-  });
-  clipboard.value.on("error", function () {
-    showMessage(CONSTATNS.MESSAGES.COPY_FAILED, "error");
-  });
-};
+  clipboard.value = new Clipboard(ele)
+  clipboard.value.on('success', function () {
+    showMessage(CONSTATNS.MESSAGES.COPY_SUCCESS, 'success')
+  })
+  clipboard.value.on('error', function () {
+    showMessage(CONSTATNS.MESSAGES.COPY_FAILED, 'error')
+  })
+}
 
 // 保存对话信息
 const saveMessage = () => {
   if (currentModel.value == CONSTATNS.MODELS.DEEPSEEK_V3) {
-    requestContent.push({ role: "assistant", content: responce });
-    return;
+    requestContent.push({ role: 'assistant', content: responce })
+    return
   }
   interface transfer {
-    myself_reply: string;
-    ai_reply: string;
-    category_id: number;
+    myself_reply: string
+    ai_reply: string
+    category_id: number
   }
-  let data: Array<transfer> = [];
+  let data: Array<transfer> = []
   for (let i = recordLength.value; i < allText.length; i++) {
     let transfer = {
       myself_reply: allText[i].userText,
       ai_reply: allText[i].adminContent.adminText,
       category_id: currentIndex.value,
       user_id: nickAll.nicknameId
-    };
-    data.push(transfer);
+    }
+    data.push(transfer)
   }
   aicgApi.addDialogue(data).then(res => {
     if (res.data.code == 0) {
-      onceQueryDialogue(currentIndex.value, 1);
+      onceQueryDialogue(currentIndex.value, 1)
     } else {
-      showMessage(res.data.msg, "warning");
+      showMessage(res.data.msg, 'warning')
     }
-  });
-};
+  })
+}
 
 // 查询对话信息接口
 const onceQueryDialogue = (id: number, index: number) => {
-  aicgApi
-    .queryDialogue({ category_id: id, user_id: nickAll.nicknameId })
-    .then(res => {
-      if (res.data.code == 0) {
-        // 解决异步竞态问题
-        if (index == 0 && !(currentIndex.value == id)) {
-          return;
-        }
-        allText.splice(0, allText.length);
-        allText.push(...res.data.data);
-        timeCount.value = allText.length;
-        recordLength.value = allText.length;
-        copyCode(".code-block-header__copy");
-      } else {
-        showMessage(res.data.msg, "error");
+  aicgApi.queryDialogue({ category_id: id, user_id: nickAll.nicknameId }).then(res => {
+    if (res.data.code == 0) {
+      // 解决异步竞态问题
+      if (index == 0 && !(currentIndex.value == id)) {
+        return
       }
-    });
-};
+      allText.splice(0, allText.length)
+      allText.push(...res.data.data)
+      timeCount.value = allText.length
+      recordLength.value = allText.length
+      copyCode('.code-block-header__copy')
+    } else {
+      showMessage(res.data.msg, 'error')
+    }
+  })
+}
 
 // 回车键提交、ctrl+enter组合键换行
 const handleKeydown = (event: KeyboardEvent) => {
-  if (event.ctrlKey && event.key == "Enter") {
-    event.preventDefault();
-    const textarea = event.target as HTMLTextAreaElement;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const value = textarea.value;
-    textarea.value = value.substring(0, start) + "\n" + value.substring(end);
-    textarea.selectionStart = textarea.selectionEnd = start + 1;
-    adjustTextareaHeight(event);
-  } else if (event.key == "Enter") {
-    event.preventDefault();
-    sendTxt(contentText.value);
+  if (event.ctrlKey && event.key == 'Enter') {
+    event.preventDefault()
+    const textarea = event.target as HTMLTextAreaElement
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const value = textarea.value
+    textarea.value = value.substring(0, start) + '\n' + value.substring(end)
+    textarea.selectionStart = textarea.selectionEnd = start + 1
+    adjustTextareaHeight(event)
+  } else if (event.key == 'Enter') {
+    event.preventDefault()
+    sendTxt(contentText.value)
   }
-};
+}
 
 // 调整输入框高度
 const adjustTextareaHeight = (event: Event) => {
-  const textarea = event.target as HTMLTextAreaElement;
-  textarea.style.height = "auto";
-  textarea.style.height = `${Math.min(textarea.scrollHeight, 150)}px`;
-};
+  const textarea = event.target as HTMLTextAreaElement
+  textarea.style.height = 'auto'
+  textarea.style.height = `${Math.min(textarea.scrollHeight, 150)}px`
+}
 
 // worker封装（消息队列模式，防止并发覆盖 onmessage）
 const renderInWorker = (content: string): Promise<string> => {
   return new Promise(resolve => {
-    const w = getWorker();
-    _workerPendingQueue.push(resolve);
-    w.postMessage(content);
-  });
-};
+    const w = getWorker()
+    _workerPendingQueue.push(resolve)
+    w.postMessage(content)
+  })
+}
 
 const sendTxt = <T extends string>(value: T) => {
   if (isAnswering.value) {
-    showMessage(CONSTATNS.MESSAGES.ANSWERING, "warning");
-    return;
+    showMessage(CONSTATNS.MESSAGES.ANSWERING, 'warning')
+    return
   }
   if (!value) {
-    showMessage(CONSTATNS.MESSAGES.INPUT_REQUIRED, "warning");
-    return;
+    showMessage(CONSTATNS.MESSAGES.INPUT_REQUIRED, 'warning')
+    return
   }
-  if (filenameAll.value.isFileContent && filenameAll.value.status == "1") {
-    showMessage("卷轴正在投递中，请稍后再试", "warning");
-    return;
-  } else if (
-    filenameAll.value.isFileContent &&
-    filenameAll.value.status == "3"
-  ) {
-    showMessage("卷轴投递失败，请重新投递", "warning");
-    return;
+  if (filenameAll.value.isFileContent && filenameAll.value.status == '1') {
+    showMessage('卷轴正在投递中，请稍后再试', 'warning')
+    return
+  } else if (filenameAll.value.isFileContent && filenameAll.value.status == '3') {
+    showMessage('卷轴投递失败，请重新投递', 'warning')
+    return
   }
-  isAnswering.value = true;
-  contentText.value = "";
+  isAnswering.value = true
+  contentText.value = ''
   if (textareaDialogue.value) {
-    textareaDialogue.value.style.height = "auto";
+    textareaDialogue.value.style.height = 'auto'
   }
-  filenameAll.value.isFileContent = false;
+  filenameAll.value.isFileContent = false
   if (currentModel.value == CONSTATNS.MODELS.DEEPSEEK_V3) {
-    let messagesContent = "";
+    let messagesContent = ''
     if (akiText.value && isAskText.value) {
-      messagesContent = akiText.value + "\n\n" + value;
-      isAskText.value = false;
-      akiText.value = "";
+      messagesContent = akiText.value + '\n\n' + value
+      isAskText.value = false
+      akiText.value = ''
     } else {
-      messagesContent = value;
+      messagesContent = value
     }
     if (apiModuleId.value == CONSTATNS.MODELS.REASONER_MODULE) {
       allText.push({
         userText: messagesContent,
-        adminContent: { adminText: "", isShow: true },
+        adminContent: { adminText: '', isShow: true },
         thinkContent: {
-          thinkText: "",
-          status: "1",
+          thinkText: '',
+          status: '1',
           isShow: true,
           isOpen: false
         }
-      });
+      })
     } else {
       allText.push({
         userText: messagesContent,
-        adminContent: { adminText: "", isShow: true }
-      });
+        adminContent: { adminText: '', isShow: true }
+      })
     }
     requestContent.push({
-      role: "user",
+      role: 'user',
       content: messagesContent + wordOrpdfText.value
-    });
+    })
     let params = {
       text: requestContent,
       moduleId: apiModuleId.value
-    };
-    closeScroll.value = false;
-    ctrl.value = new AbortController();
+    }
+    closeScroll.value = false
+    ctrl.value = new AbortController()
     fetchEventSource(CONSTATNS.API.BASE_URL + CONSTATNS.API.DEEPSEEK_MODULE, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json"
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(params),
       signal: ctrl.value.signal,
       openWhenHidden: true,
       onmessage(ev) {
-        let res = JSON.parse(ev.data);
-        lastScrollPosition.value = 0;
+        let res = JSON.parse(ev.data)
+        lastScrollPosition.value = 0
         if (
           res.choices &&
           res.choices[0].delta.reasoning_content &&
           apiModuleId.value == CONSTATNS.MODELS.REASONER_MODULE
         ) {
-          serviceThinkContent.value += res.choices[0].delta.reasoning_content;
+          serviceThinkContent.value += res.choices[0].delta.reasoning_content
           renderInWorker(serviceThinkContent.value).then(thinkText => {
-            allText[timeCount.value].thinkContent!.thinkText = thinkText;
-          });
+            allText[timeCount.value].thinkContent!.thinkText = thinkText
+          })
           //   allText[timeCount.value].thinkContent!.thinkText = getMdiText(serviceThinkContent.value)
-          allText[timeCount.value].thinkContent!.status = "1";
-          allText[timeCount.value].thinkContent!.isOpen = true;
-          allText[timeCount.value].adminContent.isShow = false;
-          isStopText.value = true;
+          allText[timeCount.value].thinkContent!.status = '1'
+          allText[timeCount.value].thinkContent!.isOpen = true
+          allText[timeCount.value].adminContent.isShow = false
+          isStopText.value = true
         }
-        if (
-          serviceThinkContent.value &&
-          res.choices &&
-          res.choices[0].delta.content
-        ) {
-          allText[timeCount.value].thinkContent!.status = "3";
+        if (serviceThinkContent.value && res.choices && res.choices[0].delta.content) {
+          allText[timeCount.value].thinkContent!.status = '3'
         }
         if (res.choices && res.choices[0].delta.content) {
-          markdownContent.value += res.choices[0].delta.content;
-          responce += res.choices[0].delta.content;
-          allText[timeCount.value].adminContent.isShow = false;
+          markdownContent.value += res.choices[0].delta.content
+          responce += res.choices[0].delta.content
+          allText[timeCount.value].adminContent.isShow = false
           renderInWorker(markdownContent.value).then(adminText => {
-            allText[timeCount.value].adminContent.adminText = adminText;
-          });
+            allText[timeCount.value].adminContent.adminText = adminText
+          })
           // allText[timeCount.value].adminContent.adminText = getMdiText(markdownContent.value)
-          isStopText.value = true;
+          isStopText.value = true
         }
         if (res.message) {
-          isAnswering.value = false;
-          allText[timeCount.value].adminContent.isShow = false;
-          allText[timeCount.value].adminContent.adminText = res.message;
+          isAnswering.value = false
+          allText[timeCount.value].adminContent.isShow = false
+          allText[timeCount.value].adminContent.adminText = res.message
         }
       },
       onclose() {
         // 关闭连接
-        markdownContent.value = "";
-        serviceThinkContent.value = "";
-        timeCount.value = timeCount.value + 1;
-        isAnswering.value = false;
-        isStopText.value = false;
-        isTyping.value = false;
+        markdownContent.value = ''
+        serviceThinkContent.value = ''
+        timeCount.value = timeCount.value + 1
+        isAnswering.value = false
+        isStopText.value = false
+        isTyping.value = false
         nextTick(() => {
-          copyCode(".code-block-header__copy");
-        });
-        saveMessage();
-        closeScroll.value = false;
-        clearFileText();
+          copyCode('.code-block-header__copy')
+        })
+        saveMessage()
+        closeScroll.value = false
+        clearFileText()
       },
       onerror(e) {
         if (apiModuleId.value == CONSTATNS.MODELS.REASONER_MODULE) {
-          allText[timeCount.value].thinkContent!.status = "2";
+          allText[timeCount.value].thinkContent!.status = '2'
         }
-        isAnswering.value = false;
-        allText[timeCount.value].adminContent.isShow = false;
-        allText[timeCount.value].adminContent.adminText =
-          CONSTATNS.MESSAGES.SERVER_ERROR;
-        timeCount.value = timeCount.value + 1;
-        responce = "";
-        throw showMessage(e, "error");
+        isAnswering.value = false
+        allText[timeCount.value].adminContent.isShow = false
+        allText[timeCount.value].adminContent.adminText = CONSTATNS.MESSAGES.SERVER_ERROR
+        timeCount.value = timeCount.value + 1
+        responce = ''
+        throw showMessage(e, 'error')
       }
-    });
+    })
   } else if (currentModel.value == CONSTATNS.MODELS.SPARK_ULTRA) {
-    let messagesContent = "";
+    let messagesContent = ''
     if (akiText.value && isAskText.value) {
-      messagesContent = akiText.value + "\n\n" + value;
-      isAskText.value = false;
-      akiText.value = "";
+      messagesContent = akiText.value + '\n\n' + value
+      isAskText.value = false
+      akiText.value = ''
     } else {
-      messagesContent = value;
+      messagesContent = value
     }
     allText.push({
       userText: value,
-      adminContent: { adminText: "", isShow: true }
-    });
+      adminContent: { adminText: '', isShow: true }
+    })
     let params = {
       max_tokens: 4096,
       top_k: 4,
       temperature: 0.5,
       messages: [
         {
-          role: "system",
+          role: 'system',
           content: roleContent.value
         },
         {
-          role: "user",
+          role: 'user',
           content: messagesContent
         }
       ],
-      model: "generalv3",
+      model: 'generalv3',
       stream: true
-    };
-    closeScroll.value = false;
-    ctrl.value = new AbortController();
+    }
+    closeScroll.value = false
+    ctrl.value = new AbortController()
     fetchEventSource(CONSTATNS.API.CHAT_COMPLETIONS, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + CONSTATNS.API.AUTH_TOKEN
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + CONSTATNS.API.AUTH_TOKEN
       },
       body: JSON.stringify(params),
       signal: ctrl.value.signal,
       openWhenHidden: true,
       onmessage(ev) {
-        if (ev.data == "[DONE]") {
-          console.log("结束", timeCount.value);
-          markdownContent.value = "";
-          timeCount.value = timeCount.value + 1;
-          isAnswering.value = false;
-          isStopText.value = false;
-          isTyping.value = false;
+        if (ev.data == '[DONE]') {
+          console.log('结束', timeCount.value)
+          markdownContent.value = ''
+          timeCount.value = timeCount.value + 1
+          isAnswering.value = false
+          isStopText.value = false
+          isTyping.value = false
           if (currentIndex.value == 0) {
-            return;
+            return
           }
-          saveMessage();
-          closeScroll.value = false;
-          clearFileText();
+          saveMessage()
+          closeScroll.value = false
+          clearFileText()
         } else {
-          console.log("结果", ev);
-          let res = JSON.parse(ev.data);
-          markdownContent.value += res.choices[0].delta.content;
-          allText[timeCount.value].adminContent.isShow = false;
+          console.log('结果', ev)
+          let res = JSON.parse(ev.data)
+          markdownContent.value += res.choices[0].delta.content
+          allText[timeCount.value].adminContent.isShow = false
           renderInWorker(markdownContent.value).then(xfText => {
-            console.log("timeCount", timeCount.value);
-            console.log("all", allText[timeCount.value]);
-            allText[timeCount.value].adminContent.adminText = xfText;
-          });
+            console.log('timeCount', timeCount.value)
+            console.log('all', allText[timeCount.value])
+            allText[timeCount.value].adminContent.adminText = xfText
+          })
           // allText[timeCount.value].adminContent.adminText = getMdiText(markdownContent.value)
-          isStopText.value = true;
-          lastScrollPosition.value = 0;
+          isStopText.value = true
+          lastScrollPosition.value = 0
         }
       },
       onclose() {},
       onerror(e) {
-        isAnswering.value = false;
-        throw showMessage(e, "error");
+        isAnswering.value = false
+        throw showMessage(e, 'error')
       }
-    });
+    })
   }
-};
+}
 
 // 监听聊天内容变化,实时改变聊天内容高度
 watch([allText], () => {
   nextTick(() => {
     if (chatContainer.value && !closeScroll.value) {
-      chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
+      chatContainer.value.scrollTop = chatContainer.value.scrollHeight
     }
-  });
-});
+  })
+})
 
 watch(contentText, newVal => {
   if (newVal) {
-    isDisabled.value = false;
+    isDisabled.value = false
   } else {
-    isDisabled.value = true;
+    isDisabled.value = true
   }
-});
+})
 
 // 点击左侧大模型分类获取对话信息
 const selectMessage = <T extends categories>(item: T) => {
   if (ctrl.value) {
-    ctrl.value.abort();
+    ctrl.value.abort()
   }
-  stopSpeech();
+  stopSpeech()
   // replacement()
-  currentModel.value = CONSTATNS.MODELS.SPARK_ULTRA;
+  currentModel.value = CONSTATNS.MODELS.SPARK_ULTRA
   if (currentModel.value == CONSTATNS.MODELS.SPARK_ULTRA) {
-    isDeepThinking.value = false;
-    apiModuleId.value = CONSTATNS.MODELS.DEFAULT_MODULE;
+    isDeepThinking.value = false
+    apiModuleId.value = CONSTATNS.MODELS.DEFAULT_MODULE
   }
-  isGenerate.value = false;
-  imgCurrent.value = "";
-  let { name, my_name, category_img, category_id, introduce } = item;
-  revealAlways.value.revealName = my_name;
-  revealAlways.value.revealImg = category_img;
-  revealAlways.value.revealId = category_id;
-  currentIndex.value = category_id;
-  roleContent.value = name + introduce;
-  closeScroll.value = false;
-  lastScrollPosition.value = 0;
-  onceQueryDialogue(category_id, 0);
-};
+  isGenerate.value = false
+  imgCurrent.value = ''
+  let { name, my_name, category_img, category_id, introduce } = item
+  revealAlways.value.revealName = my_name
+  revealAlways.value.revealImg = category_img
+  revealAlways.value.revealId = category_id
+  currentIndex.value = category_id
+  roleContent.value = name + introduce
+  closeScroll.value = false
+  lastScrollPosition.value = 0
+  onceQueryDialogue(category_id, 0)
+}
 
 // 停止sse输出
 const stopExport = () => {
   if (ctrl.value) {
-    ctrl.value.abort();
+    ctrl.value.abort()
   }
   if (apiModuleId.value == CONSTATNS.MODELS.REASONER_MODULE) {
-    if (allText[timeCount.value].thinkContent!.status == "1") {
-      allText[timeCount.value].thinkContent!.status = "2";
-      thinkStatus(allText[timeCount.value]);
+    if (allText[timeCount.value].thinkContent!.status == '1') {
+      allText[timeCount.value].thinkContent!.status = '2'
+      thinkStatus(allText[timeCount.value])
     }
   }
-  isStopText.value = false;
-  isAnswering.value = false;
-  isTyping.value = false;
-  markdownContent.value = "";
-  serviceThinkContent.value = "";
-  timeCount.value = timeCount.value + 1;
+  isStopText.value = false
+  isAnswering.value = false
+  isTyping.value = false
+  markdownContent.value = ''
+  serviceThinkContent.value = ''
+  timeCount.value = timeCount.value + 1
   nextTick(() => {
-    copyCode(".code-block-header__copy");
-  });
-  saveMessage();
-  closeScroll.value = false;
-  clearFileText();
-};
+    copyCode('.code-block-header__copy')
+  })
+  saveMessage()
+  closeScroll.value = false
+  clearFileText()
+}
 
 // 清除历史消息
 const clear = () => {
   if (isAnswering.value) {
-    showMessage(CONSTATNS.MESSAGES.CLEAR_DISABLED, "warning");
-    return;
+    showMessage(CONSTATNS.MESSAGES.CLEAR_DISABLED, 'warning')
+    return
   }
-  stopSpeech();
+  stopSpeech()
   if (currentModel.value == CONSTATNS.MODELS.SPARK_ULTRA) {
     if (allText.length) {
       aicgApi
@@ -777,49 +763,49 @@ const clear = () => {
         })
         .then(res => {
           if (res.data.code == 0) {
-            allText.splice(0, allText.length);
-            isAnswering.value = false;
-            timeCount.value = 0;
-            recordLength.value = 0;
-            showMessage(res.data.msg, "success");
+            allText.splice(0, allText.length)
+            isAnswering.value = false
+            timeCount.value = 0
+            recordLength.value = 0
+            showMessage(res.data.msg, 'success')
           } else {
-            showMessage(res.data.msg, "warning");
+            showMessage(res.data.msg, 'warning')
           }
-        });
+        })
     } else {
-      showMessage(CONSTATNS.MESSAGES.NO_MESSAGES, "warning");
+      showMessage(CONSTATNS.MESSAGES.NO_MESSAGES, 'warning')
     }
   } else {
-    allText.splice(0, allText.length);
-    timeCount.value = 0;
-    isAnswering.value = false;
+    allText.splice(0, allText.length)
+    timeCount.value = 0
+    isAnswering.value = false
   }
-};
+}
 
 // 导出对话
 const exportConversation = () => {
   if (!allText.length) {
-    showMessage("没有冒险日志可以导出", "warning");
-    return;
+    showMessage('没有冒险日志可以导出', 'warning')
+    return
   }
-  const title = revealAlways.value.revealName || "AI对话";
-  const date = new Date().toLocaleString("zh-CN");
+  const title = revealAlways.value.revealName || 'AI对话'
+  const date = new Date().toLocaleString('zh-CN')
   const messages = allText
     .map(item => {
-      let html = "";
+      let html = ''
       // 用户消息
-      html += `<div class="msg msg--user"><div class="msg__bubble msg__bubble--user">${escapeHtml(item.userText)}</div></div>`;
+      html += `<div class="msg msg--user"><div class="msg__bubble msg__bubble--user">${escapeHtml(item.userText)}</div></div>`
       // 思考内容
       if (item.thinkContent?.thinkText) {
-        html += `<div class="msg msg--ai"><div class="msg__bubble msg__bubble--think"><div class="think-label">贤者沉思</div>${item.thinkContent.thinkText}</div></div>`;
+        html += `<div class="msg msg--ai"><div class="msg__bubble msg__bubble--think"><div class="think-label">贤者沉思</div>${item.thinkContent.thinkText}</div></div>`
       }
       // AI 回复
       if (item.adminContent.adminText) {
-        html += `<div class="msg msg--ai"><div class="msg__bubble msg__bubble--ai">${item.adminContent.adminText}</div></div>`;
+        html += `<div class="msg msg--ai"><div class="msg__bubble msg__bubble--ai">${item.adminContent.adminText}</div></div>`
       }
-      return html;
+      return html
     })
-    .join("\n");
+    .join('\n')
 
   const html = `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -875,47 +861,43 @@ const exportConversation = () => {
   <div class="footer">由冒险者公会 · 未来智匠导出</div>
 </div>
 </body>
-</html>`;
+</html>`
 
-  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${title}-${Date.now()}.html`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showMessage("冒险日志已导出", "success");
-};
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${title}-${Date.now()}.html`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+  showMessage('冒险日志已导出', 'success')
+}
 
 const escapeHtml = (str: string) => {
   return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-};
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
 
 // 点击页数
 const handleCurrentChange = (val: number) => {
-  queryPage(val, pageSize.value, promptValue.value);
-};
+  queryPage(val, pageSize.value, promptValue.value)
+}
 
 // 查询分类标签下的信息
 const optforPrompt = (item: promptObject, index: number) => {
-  promptIndex.value = index;
-  promptValue.value = item.id;
-  page.value = 1;
-  queryPage(page.value, pageSize.value, promptValue.value);
-};
+  promptIndex.value = index
+  promptValue.value = item.id
+  page.value = 1
+  queryPage(page.value, pageSize.value, promptValue.value)
+}
 
 // 查询类别的大模型
-const queryPage = (
-  currentPage: number,
-  pageSize: number,
-  template_id: number
-) => {
+const queryPage = (currentPage: number, pageSize: number, template_id: number) => {
   aicgApi
     .queryTemplate({
       page: currentPage,
@@ -924,14 +906,14 @@ const queryPage = (
     })
     .then(res => {
       if (res.data.code == 0) {
-        templateList.splice(0, templateList.length);
-        templateList.push(...res.data.data.data);
-        total.value = res.data.data.total;
+        templateList.splice(0, templateList.length)
+        templateList.push(...res.data.data.data)
+        total.value = res.data.data.total
       } else {
-        showMessage(res.data.msg, "error");
+        showMessage(res.data.msg, 'error')
       }
-    });
-};
+    })
+}
 
 // 新增聊天模型
 const cite = (item: templateObject) => {
@@ -941,34 +923,34 @@ const cite = (item: templateObject) => {
     name: item.characterSettings,
     introduce: item.instructionDescription,
     user_id: nickAll.nicknameId
-  };
+  }
   aicgApi.addCategory(temp).then(res => {
     if (res.data.code == 0) {
-      showMessage(res.data.msg, "success");
-      getClassInformation(nickAll.nicknameId);
+      showMessage(res.data.msg, 'success')
+      getClassInformation(nickAll.nicknameId)
     } else {
-      showMessage(res.data.msg, "error");
+      showMessage(res.data.msg, 'error')
     }
-  });
-};
+  })
+}
 
 // 点击查询分类
 const addClassify = () => {
-  dialogTableVisible.value = true;
+  dialogTableVisible.value = true
   aicgApi.queryPrompt().then(res => {
     if (res.data.code == 0) {
-      promptList.splice(0, promptList.length);
-      promptList.push(...res.data.data);
-      queryPage(page.value, pageSize.value, promptValue.value);
+      promptList.splice(0, promptList.length)
+      promptList.push(...res.data.data)
+      queryPage(page.value, pageSize.value, promptValue.value)
     } else {
-      showMessage(res.data.msg, "error");
+      showMessage(res.data.msg, 'error')
     }
-  });
-};
+  })
+}
 
 // 删除大模型分类
 const removeClassify = (item: menuObject) => {
-  if (item.label == "删除") {
+  if (item.label == '删除') {
     aicgApi.deleteCategory({ category_id: item.id }).then(res => {
       if (res.data.code == 0) {
         if (item.id == revealAlways.value.revealId) {
@@ -976,77 +958,77 @@ const removeClassify = (item: menuObject) => {
             revealId: 0,
             revealName: CONSTATNS.DEFAULT.AI_NAME,
             revealImg: CONSTATNS.DEFAULT.AI_AVATAR
-          };
-          roleContent.value = "";
-          timeCount.value = 0;
-          currentIndex.value = 0;
-          allText.splice(0, allText.length);
+          }
+          roleContent.value = ''
+          timeCount.value = 0
+          currentIndex.value = 0
+          allText.splice(0, allText.length)
         }
-        showMessage(CONSTATNS.MESSAGES.DELETE_SUCCESS, "success");
-        getClassInformation(nickAll.nicknameId);
+        showMessage(CONSTATNS.MESSAGES.DELETE_SUCCESS, 'success')
+        getClassInformation(nickAll.nicknameId)
       } else {
-        showMessage(res.data.msg, "error");
+        showMessage(res.data.msg, 'error')
       }
-    });
+    })
   }
-};
+}
 
 const setHoveredIndex = <T extends number | null>(index: T) => {
-  hoveredIndex.value = index;
-};
+  hoveredIndex.value = index
+}
 
 // 点击编辑
 const editChat = (index: number, text: string) => {
-  editIndex.value = index;
-  editText.value = text;
-  hoveredIndex.value = null;
-};
+  editIndex.value = index
+  editText.value = text
+  hoveredIndex.value = null
+}
 
 // 取消编辑
 const editCancle = () => {
-  editIndex.value = -1;
-};
+  editIndex.value = -1
+}
 
 //  提交修改的用户内容
 const editSubmit = () => {
-  editIndex.value = -1;
-  sendTxt(editText.value);
-};
+  editIndex.value = -1
+  sendTxt(editText.value)
+}
 
 // 复制用户内容
 const copyDocument = () => {
-  copyCode(".copyDocument");
-};
+  copyCode('.copyDocument')
+}
 
 const toggleDeepThinking = () => {
   if (currentModel.value == CONSTATNS.MODELS.DEEPSEEK_V3) {
-    isDeepThinking.value = !isDeepThinking.value;
+    isDeepThinking.value = !isDeepThinking.value
     apiModuleId.value = isDeepThinking.value
       ? CONSTATNS.MODELS.REASONER_MODULE
-      : CONSTATNS.MODELS.DEFAULT_MODULE;
-    return;
+      : CONSTATNS.MODELS.DEFAULT_MODULE
+    return
   }
-  showMessage(CONSTATNS.MESSAGES.REASONER_ONLY, "warning");
-};
+  showMessage(CONSTATNS.MESSAGES.REASONER_ONLY, 'warning')
+}
 
 const thinkStatus = (item: allInstall) => {
-  if (item.thinkContent?.status == "1") {
-    return "思考中...";
-  } else if (item.thinkContent?.status == "2") {
-    return "思考已停止";
-  } else if (item.thinkContent?.status == "3") {
-    return "已思考完毕";
+  if (item.thinkContent?.status == '1') {
+    return '思考中...'
+  } else if (item.thinkContent?.status == '2') {
+    return '思考已停止'
+  } else if (item.thinkContent?.status == '3') {
+    return '已思考完毕'
   }
-};
+}
 
 const goTocustomerService = () => {
-  router.push({ name: "customer-service", query: { appid: nickAll.appid } });
-};
+  router.push({ name: 'customer-service', query: { appid: nickAll.appid } })
+}
 
 const saveUserProfile = () => {
   if (!editAll.value.nickname) {
-    showMessage("昵称不能为空", "error");
-    return;
+    showMessage('昵称不能为空', 'error')
+    return
   }
   userApi
     .updateUser({
@@ -1056,14 +1038,14 @@ const saveUserProfile = () => {
     })
     .then(res => {
       if (res.data.code == 0) {
-        showMessage("冒险者档案已更新", "success");
-        showUserProfile.value = false;
-        getUser(false);
+        showMessage('冒险者档案已更新', 'success')
+        showUserProfile.value = false
+        getUser(false)
       } else {
-        showMessage(res.data.msg, "error");
+        showMessage(res.data.msg, 'error')
       }
-    });
-};
+    })
+}
 
 // 关闭个人信息弹窗
 const closeUserProfile = () => {
@@ -1071,72 +1053,72 @@ const closeUserProfile = () => {
     img_url: nickAll.nickImg,
     nickname: nickAll.nickname,
     username: nickAll.userNickname
-  };
-  showUserProfile.value = false;
-};
+  }
+  showUserProfile.value = false
+}
 
 // 上传文件
 const parseFileInput = (event: Event) => {
-  const target = event.target as HTMLInputElement;
+  const target = event.target as HTMLInputElement
   if (target.files && target.files.length > 0) {
-    const file = target.files[0];
-    if (!(file.type == "application/pdf")) {
-      showMessage("请上传PDF文件", "error");
-      clearFileText();
-      return;
+    const file = target.files[0]
+    if (!(file.type == 'application/pdf')) {
+      showMessage('请上传PDF文件', 'error')
+      clearFileText()
+      return
     }
-    const fileType = file.type.split("/").pop();
+    const fileType = file.type.split('/').pop()
     filenameAll.value = {
       name: file.name,
       size: (file.size / 1024 / 1024).toFixed(2),
-      type: fileType || "unknown",
+      type: fileType || 'unknown',
       isFileContent: true,
-      status: "1",
-      url: ""
-    };
-    const formdata = new FormData();
-    formdata.append("avatar", file);
+      status: '1',
+      url: ''
+    }
+    const formdata = new FormData()
+    formdata.append('avatar', file)
     aicgApi
       .uploadFile(formdata)
       .then(res => {
         if (res.data.code == 0) {
-          const result = res.data.data;
-          filenameAll.value.status = "2";
-          filenameAll.value.url = result.url;
-          wordOrpdfText.value = result.text;
+          const result = res.data.data
+          filenameAll.value.status = '2'
+          filenameAll.value.url = result.url
+          wordOrpdfText.value = result.text
         } else {
-          filenameAll.value.status = "3";
-          showMessage(res.data.msg, "error");
+          filenameAll.value.status = '3'
+          showMessage(res.data.msg, 'error')
         }
       })
       .catch(() => {
-        filenameAll.value.status = "3";
-      });
+        filenameAll.value.status = '3'
+      })
   }
-};
+}
 
 // 初始值
 const clearFileText = () => {
   filenameAll.value = {
     isFileContent: false,
-    name: "",
-    size: "",
-    type: "",
-    status: "1",
-    url: ""
-  };
-  wordOrpdfText.value = "";
-};
+    name: '',
+    size: '',
+    type: '',
+    status: '1',
+    url: ''
+  }
+  wordOrpdfText.value = ''
+}
 
 const openUrl = () => {
   if (filenameAll.value.url) {
-    window.open(filenameAll.value.url, "_blank");
+    window.open(filenameAll.value.url, '_blank')
   }
-};
+}
 
 const openUserProfile = () => {
-  showUserProfile.value = true;
-};
+  showUserProfile.value = true
+}
 </script>
 
 <template>
@@ -1230,9 +1212,7 @@ const openUserProfile = () => {
               @edit-chat="editChat"
               @copy-document="copyDocument"
               @speak="speak"
-              @toggle-think="
-                item => (item.thinkContent!.isOpen = !item.thinkContent!.isOpen)
-              "
+              @toggle-think="item => (item.thinkContent!.isOpen = !item.thinkContent!.isOpen)"
             />
           </template>
         </div>
@@ -1273,29 +1253,16 @@ const openUserProfile = () => {
 </template>
 
 <style lang="scss" scoped>
-@use "@/styles/pixel-theme" as *;
+@use '@/styles/pixel-theme' as *;
 
 .pixel-page {
   color: $pixel-text;
   background:
-    radial-gradient(
-      ellipse at 20% 80%,
-      rgba($neon-magenta, 0.15) 0%,
-      transparent 50%
-    ),
-    radial-gradient(
-      ellipse at 80% 20%,
-      rgba($neon-cyan, 0.15) 0%,
-      transparent 50%
-    ),
-    radial-gradient(
-      ellipse at 50% 50%,
-      rgba($neon-purple, 0.1) 0%,
-      transparent 70%
-    ),
+    radial-gradient(ellipse at 20% 80%, rgba($neon-magenta, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba($neon-cyan, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba($neon-purple, 0.1) 0%, transparent 70%),
     linear-gradient(180deg, #0a0a12 0%, #12121f 50%, #0a0a12 100%);
-  font-family:
-    ui-sans-serif, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  font-family: ui-sans-serif, 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
   overflow-x: hidden;
   width: 100%;
   max-width: 100%;
@@ -1512,7 +1479,7 @@ const openUserProfile = () => {
 }
 
 .pixel-title {
-  font-family: myFirstFont, "VT323", ui-monospace, monospace;
+  font-family: myFirstFont, 'VT323', ui-monospace, monospace;
   font-weight: normal;
   color: #fff;
   letter-spacing: 0.04em;
@@ -2077,7 +2044,7 @@ const openUserProfile = () => {
 }
 
 .pixel-profile-title {
-  font-family: myFirstFont, "VT323", ui-monospace, monospace;
+  font-family: myFirstFont, 'VT323', ui-monospace, monospace;
   font-size: 1.35rem;
   font-weight: normal;
   color: #fff;
@@ -2219,7 +2186,7 @@ const openUserProfile = () => {
   animation: api-debug_load__hsrQ8 2s linear infinite;
   border-right: 2px solid $neon-cyan;
   border-top: 2px solid $neon-cyan;
-  content: "";
+  content: '';
   display: block;
   height: 20px;
   width: 20px;
@@ -2286,12 +2253,12 @@ const openUserProfile = () => {
 }
 
 :deep(.code-block-header__copy::before) {
-  content: "📋";
+  content: '📋';
   font-size: 14px;
 }
 
 :deep(.code-block-header__download::before) {
-  content: "⬇️";
+  content: '⬇️';
   font-size: 14px;
 }
 
