@@ -1,0 +1,70 @@
+/* —— 精致奇幻像素游戏风格配色 —— */
+$neon-cyan: #7dd8c7;
+$neon-cyan-dark: #3f9f91;
+$neon-cyan-light: #c9fff2;
+$neon-magenta: #d8a657;
+$neon-magenta-dark: #9b6a2d;
+$neon-magenta-light: #ffe0a0;
+$neon-purple: #6d7fb6;
+$neon-purple-dark: #37446f;
+$neon-orange: #c87941;
+$neon-yellow: #f3c766;
+$pixel-bg-dark: #07111f;
+$pixel-bg: #101c2e;
+$pixel-dialog-bg: rgba(13, 22, 36, 0.96);
+$pixel-text: #f7ead0;
+$pixel-text-muted: #b6a989;
+$pixel-border: #31415b;
+$sidebar-w: 16rem;
+
+/* 霓虹像素外框：玻璃态 + 霓虹描边 + 像素角 */
+@mixin neon-pixel-panel {
+  background: $pixel-dialog-bg;
+  border: 2px solid $pixel-border;
+  box-shadow:
+    0 0 30px rgba($neon-cyan, 0.15),
+    0 0 60px rgba($neon-magenta, 0.1);
+  clip-path: polygon(
+    0 8px, 8px 8px, 8px 0,
+    calc(100% - 8px) 0, calc(100% - 8px) 8px, 100% 8px,
+    100% calc(100% - 8px), calc(100% - 8px) calc(100% - 8px), calc(100% - 8px) 100%,
+    8px 100%, 8px calc(100% - 8px), 0 calc(100% - 8px)
+  );
+}
+
+/* 像素游戏「按下」反馈 */
+@mixin pixel-press-shadow {
+  box-shadow:
+    inset 2px 3px 5px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    1px 1px 0 rgba(0, 0, 0, 0.2);
+}
+
+@mixin pixel-press-btn {
+  transition:
+    transform 0.07s ease-out,
+    box-shadow 0.07s ease-out,
+    filter 0.07s ease-out;
+
+  &:active:not(:disabled) {
+    transform: translate(2px, 3px);
+
+    @include pixel-press-shadow;
+
+    filter: brightness(0.92);
+  }
+}
+
+@keyframes api-debug_load__hsrQ8 {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  50% {
+    transform: rotate(180deg);
+  }
+
+  100% {
+    transform: rotate(1turn);
+  }
+}

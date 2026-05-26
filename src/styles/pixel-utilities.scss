@@ -1,0 +1,160 @@
+@use './pixel-theme' as *;
+
+/* —— 共享按钮组件 —— */
+.pixel-btn {
+  border: 2px solid $neon-cyan;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  background: rgba($pixel-bg, 0.8);
+  backdrop-filter: blur(10px);
+  box-shadow:
+    0 0 10px rgba($neon-cyan, 0.5),
+    0 0 20px rgba($neon-cyan, 0.3),
+    0 0 40px rgba($neon-cyan, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+  text-shadow: 0 0 10px $neon-cyan;
+  clip-path: polygon(
+    0 4px, 4px 4px, 4px 0,
+    calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px,
+    100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%,
+    4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px)
+  );
+  transition:
+    transform 0.07s ease-out,
+    box-shadow 0.07s ease-out,
+    filter 0.07s ease-out;
+
+  &:active:not(:disabled) {
+    transform: translate(2px, 3px);
+    box-shadow:
+      inset 2px 3px 5px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05),
+      1px 1px 0 rgba(0, 0, 0, 0.2);
+    filter: brightness(0.92);
+  }
+
+  &:hover:not(:disabled) {
+    background: rgba($neon-cyan, 0.2);
+    border-color: $neon-cyan-light;
+    transform: translateY(-2px);
+    box-shadow:
+      0 0 15px rgba($neon-cyan, 0.7),
+      0 0 30px rgba($neon-cyan, 0.5),
+      0 0 60px rgba($neon-cyan, 0.3),
+      0 5px 20px rgba($neon-cyan, 0.4);
+  }
+}
+
+.pixel-btn-primary {
+  background: $neon-purple-dark;
+  border-color: $neon-purple;
+  color: #fff;
+  text-shadow: 0 0 10px $neon-purple;
+  box-shadow:
+    0 0 10px rgba($neon-purple, 0.5),
+    0 0 20px rgba($neon-purple, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+
+  &:hover:not(:disabled) {
+    background: #47537b;
+    border-color: #7c8cbd;
+    box-shadow:
+      0 0 15px rgba($neon-purple, 0.7),
+      0 0 30px rgba($neon-purple, 0.5),
+      0 5px 20px rgba($neon-purple, 0.4);
+  }
+}
+
+.pixel-btn-secondary {
+  background: $neon-magenta-dark;
+  border-color: $neon-magenta;
+  color: #fff;
+  text-shadow: 0 0 10px $neon-magenta;
+  box-shadow:
+    0 0 10px rgba($neon-magenta, 0.5),
+    0 0 20px rgba($neon-magenta, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+
+  &:hover:not(:disabled) {
+    background: #a3763e;
+    border-color: $neon-magenta-light;
+    box-shadow:
+      0 0 15px rgba($neon-magenta, 0.7),
+      0 0 30px rgba($neon-magenta, 0.5),
+      0 5px 20px rgba($neon-magenta, 0.4);
+  }
+}
+
+.pixel-btn-ghost {
+  background: rgba($pixel-bg, 0.6);
+  border-color: $pixel-border;
+  color: $pixel-text;
+  text-shadow: none;
+  box-shadow: none;
+
+  &:hover:not(:disabled) {
+    background: rgba($neon-cyan, 0.15);
+    border-color: $neon-cyan;
+    box-shadow: 0 0 15px rgba($neon-cyan, 0.3);
+    transform: translateY(-2px);
+  }
+}
+
+.pixel-btn-send:disabled {
+  opacity: 0.4;
+  filter: grayscale(0.3);
+}
+
+/* —— 共享工具类 —— */
+.pixel-icon-accent {
+  color: $neon-cyan;
+  filter: drop-shadow(0 0 5px $neon-cyan);
+}
+
+.pixel-text-muted { color: $pixel-text-muted; }
+.pixel-ink { color: $pixel-text; }
+.pixel-gold { color: $neon-magenta; }
+.pixel-danger { color: #c97b7b; }
+
+.pixel-avatar-sm {
+  border: 2px solid $neon-cyan;
+  box-shadow: 0 0 8px rgba($neon-cyan, 0.4);
+  clip-path: polygon(
+    0 3px, 3px 3px, 3px 0,
+    calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px,
+    100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%,
+    3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px)
+  );
+}
+
+.pixel-chip--on {
+  background: rgba($neon-cyan, 0.25);
+  border-color: $neon-cyan;
+  box-shadow: 0 0 15px rgba($neon-cyan, 0.4);
+  color: $neon-cyan-light;
+}
+
+.area-disabled { cursor: no-drop; }
+
+.text-word { white-space: pre-wrap; }
+
+.textarea-dialogue { overflow: hidden; }
+
+/* —— ChatWrapper 滚动条 —— */
+.chat-wrapper::-webkit-scrollbar, .chat-edit-textarea::-webkit-scrollbar {
+  width: 5px;
+}
+
+.chat-wrapper::-webkit-scrollbar-thumb, .chat-edit-textarea::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 5px;
+  transition: all 1s;
+}
+
+.chat-wrapper:hover::-webkit-scrollbar-thumb, .chat-edit-textarea:hover::-webkit-scrollbar-thumb {
+  background-color: rgba($neon-cyan, 0.3);
+}
