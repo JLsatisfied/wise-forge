@@ -5,6 +5,7 @@ import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import tailwindcss from '@tailwindcss/vite'
+import { visualizer } from 'rollup-plugin-visualizer'
 // import copyDist from './src/plugins/vite-plugin-copy'
 
 export default defineConfig({
@@ -12,28 +13,38 @@ export default defineConfig({
     tailwindcss(),
     vue(),
     AutoImport({
-      resolvers: [ElementPlusResolver()],
+      resolvers: [ElementPlusResolver()]
     }),
     Components({
-      resolvers: [ElementPlusResolver()],
+      resolvers: [ElementPlusResolver()]
     }),
     // copyDist('../ainode/dist'),
+    ...(process.env.ANALYZE === 'true'
+      ? [
+          visualizer({
+            open: true,
+            gzipSize: true,
+            brotliSize: true,
+            filename: './dist/stats.html'
+          })
+        ]
+      : [])
   ],
   server: {
     proxy: {
       '/api': {
         target: 'https://spark-api-open.xf-yun.com',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
-      },
-    },
+        rewrite: path => path.replace(/^\/api/, '')
+      }
+    }
   },
   css: {
     preprocessorOptions: {
       scss: {
-        api: 'modern-compiler',
-      },
-    },
+        api: 'modern-compiler'
+      }
+    }
   },
   build: {
     rollupOptions: {
@@ -52,14 +63,22 @@ export default defineConfig({
           return `assets/[name]-[hash].${extType}`
         },
         manualChunks(id) {
-          if (id.includes('node_modules')) return 'vendor'
-        },
-      },
+          if (id.includes('node_modules')) {
+            return 'chunk-vendor'
+          }
+        }
+      }
     },
+    terserOptions: {
+      compress: {
+        drop_console: true, // 生产环境移除 console
+        drop_debugger: true
+      }
+    }
   },
   resolve: {
     alias: {
-      '@': resolve(__dirname, './src'),
-    },
-  },
+      '@': resolve(__dirname, './src')
+    }
+  }
 })

@@ -707,7 +707,7 @@ onUnmounted(() => {
         <div ref="messagesContainer" class="flex-1 overflow-y-auto p-4 bg-gray-50">
           <div v-for="(message, index) in messages" :key="index" class="mb-4">
             <!-- AI消息 -->
-            <div v-if="message.type === 'ai'" class="overflow-hidden">
+            <div v-if="message.type === 'ai' && message.content" class="overflow-hidden">
               <div
                 class="text-sm text-black p-3 bg-white rounded shadow-sm inline-block max-w-[280px] float-left markdown-content"
                 v-html="renderMarkdown(message.content)"
@@ -719,7 +719,7 @@ onUnmounted(() => {
             </div>
 
             <!-- 用户消息 -->
-            <div v-else class="overflow-hidden text-right">
+            <div v-else-if="message.content" class="overflow-hidden text-right">
               <div
                 class="text-sm text-white p-3 rounded inline-block max-w-[280px] float-right"
                 :style="`background-color: ${chatConfig.themeColor || '#4CAF50'}`"
@@ -740,18 +740,22 @@ onUnmounted(() => {
             "
             class="mb-4"
           >
-            <div class="text-sm p-3 bg-white rounded shadow-sm inline-block max-w-[280px]">
+            <div class="text-sm p-2 bg-white rounded shadow-sm inline-block">
               <div class="flex space-x-1">
-                <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                <div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div>
                 <div
-                  class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                  class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
                   style="animation-delay: 0.2s"
                 ></div>
                 <div
-                  class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                  class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
                   style="animation-delay: 0.4s"
                 ></div>
               </div>
+            </div>
+            <div class="clear-both"></div>
+            <div v-if="chatConfig.signature" class="text-[11px] text-gray-400 mt-1 ml-1">
+              {{ chatConfig.signature }}
             </div>
           </div>
         </div>
