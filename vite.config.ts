@@ -46,6 +46,9 @@ export default defineConfig({
       }
     }
   },
+  esbuild: {
+    drop: ['console', 'debugger']
+  },
   build: {
     rollupOptions: {
       output: {
@@ -67,12 +70,6 @@ export default defineConfig({
             return 'chunk-vendor'
           }
         }
-      }
-    },
-    terserOptions: {
-      compress: {
-        drop_console: true, // 生产环境移除 console
-        drop_debugger: true
       }
     }
   },
