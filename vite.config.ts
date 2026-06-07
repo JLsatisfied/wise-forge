@@ -67,7 +67,13 @@ export default defineConfig({
         },
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            return 'chunk-vendor'
+            // 把大依赖拆成独立 chunk，浏览器并行下载
+            if (id.includes('element-plus')) return 'vendor-element'
+            if (id.includes('vue') || id.includes('pinia') || id.includes('vue-router'))
+              return 'vendor-vue'
+            if (id.includes('highlight.js')) return 'vendor-highlight'
+            if (id.includes('markdown-it')) return 'vendor-markdown'
+            return 'vendor-common'
           }
         }
       }

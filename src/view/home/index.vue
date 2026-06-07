@@ -71,6 +71,27 @@ const registerForm = reactive({
   captcha: ''
 })
 
+// 密码强度检测
+const passwordStrength = computed(() => {
+  const pwd = registerForm.password
+  if (!pwd) return { level: 0, label: '', color: '', width: '0%' }
+  let score = 0
+  if (pwd.length >= 8) score++
+  if (/[a-z]/.test(pwd)) score++
+  if (/[A-Z]/.test(pwd)) score++
+  if (/[0-9]/.test(pwd)) score++
+  if (/[^a-zA-Z0-9]/.test(pwd)) score++
+  const levels = [
+    { level: 0, label: '', color: '', width: '0%' },
+    { level: 1, label: '弱不禁风', color: '#c97b7b', width: '20%' },
+    { level: 2, label: '初入江湖', color: '#f3c766', width: '40%' },
+    { level: 3, label: '勇者之盾', color: '#7dd8c7', width: '65%' },
+    { level: 4, label: '史诗护符', color: '#d8a657', width: '85%' },
+    { level: 5, label: '传说结界', color: '#c9fff2', width: '100%' }
+  ]
+  return levels[Math.min(score, 5)]
+})
+
 const { selectFile, upImg } = useFileUpload(fileInput, registerForm, 0)
 
 const changeData = reactive({
@@ -627,7 +648,30 @@ onMounted(() => {
               type="password"
               placeholder="设置通行密令"
               show-password
+              :class="{ 'has-strength': registerForm.password }"
             />
+            <!-- 密码强度 -->
+            <div v-if="registerForm.password" class="password-strength">
+              <div class="strength-bar-track">
+                <div
+                  class="strength-bar-fill"
+                  :style="{
+                    width: passwordStrength.width,
+                    background: passwordStrength.color,
+                    boxShadow: `0 0 8px ${passwordStrength.color}`
+                  }"
+                ></div>
+              </div>
+              <span
+                class="strength-label"
+                :style="{
+                  color: passwordStrength.color,
+                  textShadow: `0 0 6px ${passwordStrength.color}`
+                }"
+              >
+                {{ passwordStrength.label }}
+              </span>
+            </div>
           </el-form-item>
 
           <el-form-item prop="confirmPassword">
@@ -1624,6 +1668,61 @@ h2 {
 
 :deep(.el-input__inner) {
   color: $pixel-text;
+}
+
+/* 密码强度指示器 */
+.password-strength {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.strength-bar-track {
+  flex: 1;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba($neon-cyan, 0.1);
+  overflow: hidden;
+  clip-path: polygon(
+    0 1px,
+    1px 1px,
+    1px 0,
+    calc(100% - 1px) 0,
+    calc(100% - 1px) 1px,
+    100% 1px,
+    100% calc(100% - 1px),
+    calc(100% - 1px) calc(100% - 1px),
+    calc(100% - 1px) 100%,
+    1px 100%,
+    1px calc(100% - 1px),
+    0 calc(100% - 1px)
+  );
+}
+
+.strength-bar-fill {
+  height: 100%;
+  transition:
+    width 0.4s ease,
+    background 0.3s ease;
+
+  &::after {
+    content: '';
+    display: block;
+    margin: 1px 2px 0;
+    height: 2px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), transparent);
+  }
+}
+
+.strength-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+  font-family: myFirstFont, 'VT323', monospace;
 }
 
 .portrait {

@@ -2,6 +2,7 @@
 import ContextMenu from '@/components/ContextMenu.vue'
 import SkeletonLoader from '@/components/SkeletonLoader.vue'
 import { categories, menuObject } from '@/utils/types/ai'
+import { useRouter } from 'vue-router'
 
 defineOptions({ name: 'SideBar' })
 
@@ -17,6 +18,8 @@ const emit = defineEmits<{
   'remove-classify': [item: menuObject]
   'go-customer-service': []
 }>()
+
+const router = useRouter()
 </script>
 
 <template>
@@ -36,15 +39,17 @@ const emit = defineEmits<{
           <i class="fas fa-scroll text-xl pixel-icon-accent"></i>
         </div>
       </div>
-      <button
-        class="pixel-btn pixel-btn-primary w-full py-2.5 flex items-center justify-center gap-2 cursor-pointer"
-        @click="emit('add-classify')">
-        <i class="fas fa-plus"></i>
-        开启冒险
+      <button class="sb-btn sb-btn--quest" @click="emit('add-classify')">
+        <span class="sb-btn-icon"><i class="fas fa-plus"></i></span>
+        <span class="sb-btn-text">开启冒险</span>
       </button>
-      <button @click="emit('go-customer-service')" class="pixel-btn pixel-btn-secondary w-full py-2.5 mt-2 flex items-center justify-center gap-2 text-sm cursor-pointer">
-        <i class="fas fa-headset"></i>
-        冒险者公会
+      <button class="sb-btn sb-btn--guild" @click="emit('go-customer-service')">
+        <span class="sb-btn-icon"><i class="fas fa-headset"></i></span>
+        <span class="sb-btn-text">冒险者公会</span>
+      </button>
+      <button class="sb-btn sb-btn--adventure" @click="router.push('/adventure')">
+        <span class="sb-btn-icon"><i class="fas fa-dungeon"></i></span>
+        <span class="sb-btn-text">冒险模式</span>
       </button>
     </div>
     <div class="flex-1 overflow-y-auto space-y-2 new-dialogue px-2 pb-3">
@@ -54,20 +59,29 @@ const emit = defineEmits<{
             <div class="list-icon">
               <SkeletonLoader variant="avatar" width="40px" height="40px" />
             </div>
-            <div class="header-right pixel-list-text" style="flex:1; margin-left:10px;">
-              <SkeletonLoader width="60%" height="14px" style="margin-bottom:6px;" />
+            <div class="header-right pixel-list-text" style="flex: 1; margin-left: 10px">
+              <SkeletonLoader width="60%" height="14px" style="margin-bottom: 6px" />
               <SkeletonLoader width="90%" height="12px" />
             </div>
           </div>
         </div>
       </template>
-      <div class="p-1" v-for="item in categoryData" :key="item.category_id" @click="emit('select-message', item)">
-        <ContextMenu :menu="[
-          { label: '删除', id: item.category_id}
-          ]" @select="(menuItem: menuObject) => emit('remove-classify', menuItem)">
-          <div class="header effect pixel-list-item cursor-pointer" :class="currentIndex == item.category_id ? 'pixel-list-item--active':''">
+      <div
+        class="p-1"
+        v-for="item in categoryData"
+        :key="item.category_id"
+        @click="emit('select-message', item)"
+      >
+        <ContextMenu
+          :menu="[{ label: '删除', id: item.category_id }]"
+          @select="(menuItem: menuObject) => emit('remove-classify', menuItem)"
+        >
+          <div
+            class="header effect pixel-list-item cursor-pointer"
+            :class="currentIndex == item.category_id ? 'pixel-list-item--active' : ''"
+          >
             <div class="list-icon">
-              <img class="profile" :src="item.category_img" alt="">
+              <img class="profile" :src="item.category_img" alt="" />
             </div>
             <div class="header-right pixel-list-text">
               <p class="name">{{ item.my_name }}</p>
@@ -118,10 +132,18 @@ const emit = defineEmits<{
     box-shadow 0.08s ease,
     filter 0.1s ease;
   clip-path: polygon(
-    0 4px, 4px 4px, 4px 0,
-    calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px,
-    100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%,
-    4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px)
+    0 4px,
+    4px 4px,
+    4px 0,
+    calc(100% - 4px) 0,
+    calc(100% - 4px) 4px,
+    100% 4px,
+    100% calc(100% - 4px),
+    calc(100% - 4px) calc(100% - 4px),
+    calc(100% - 4px) 100%,
+    4px 100%,
+    4px calc(100% - 4px),
+    0 calc(100% - 4px)
   );
 
   &:hover {
@@ -186,41 +208,41 @@ const emit = defineEmits<{
 }
 
 .list-icon {
-    position: relative;
-    width: 30px;
-    height: 30px;
-    flex-shrink: 0;
+  position: relative;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
 }
 
 .restrict {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    width: 185px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 185px;
 }
 
 .header {
-    font-size: 14px;
-    color: $pixel-text;
-    display: flex;
-    align-items: center;
-    padding-bottom: 14px;
-    user-select: none;
+  font-size: 14px;
+  color: $pixel-text;
+  display: flex;
+  align-items: center;
+  padding-bottom: 14px;
+  user-select: none;
 }
 
 .header .profile {
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    border: 2px solid $neon-cyan;
-    box-shadow: 0 0 10px rgba($neon-cyan, 0.3);
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid $neon-cyan;
+  box-shadow: 0 0 10px rgba($neon-cyan, 0.3);
 }
 
 .header.effect {
-    padding-bottom: 0;
-    padding: 10px 5px;
-    transition: all 1s;
-    margin-top: 20px;
+  padding-bottom: 0;
+  padding: 10px 5px;
+  transition: all 1s;
+  margin-top: 20px;
 }
 
 .header.effect:first-child {
@@ -229,5 +251,179 @@ const emit = defineEmits<{
 
 .header-right {
   margin-left: 10px;
+}
+
+/* ===== 侧边栏特色按钮 ===== */
+.sb-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: none;
+  color: $pixel-text;
+  font-size: 14px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  text-align: left;
+  position: relative;
+
+  & + & {
+    margin-top: 10px;
+  }
+
+  .sb-btn-icon {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    transition: all 0.18s ease;
+    flex-shrink: 0;
+  }
+
+  .sb-btn-text {
+    transition: all 0.18s ease;
+  }
+
+  &:hover {
+    .sb-btn-icon {
+      transform: scale(1.1);
+    }
+  }
+
+  &:active {
+    .sb-btn-icon {
+      transform: scale(0.95);
+    }
+  }
+
+  /* 开启冒险 - 青绿 */
+  &--quest {
+    background: linear-gradient(90deg, rgba($neon-cyan, 0.08), transparent);
+    border-left: 2px solid rgba($neon-cyan, 0.3);
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+
+    .sb-btn-icon {
+      background: rgba($neon-cyan, 0.12);
+      border: 1px solid rgba($neon-cyan, 0.25);
+      clip-path: polygon(
+        0 2px,
+        2px 2px,
+        2px 0,
+        calc(100% - 2px) 0,
+        calc(100% - 2px) 2px,
+        100% 2px,
+        100% calc(100% - 2px),
+        calc(100% - 2px) calc(100% - 2px),
+        calc(100% - 2px) 100%,
+        2px 100%,
+        2px calc(100% - 2px),
+        0 calc(100% - 2px)
+      );
+    }
+
+    .sb-btn-icon i {
+      color: $neon-cyan;
+    }
+    .sb-btn-text {
+      color: $neon-cyan-light;
+    }
+
+    &:hover {
+      background: linear-gradient(90deg, rgba($neon-cyan, 0.14), transparent);
+      border-left-color: rgba($neon-cyan, 0.55);
+      .sb-btn-icon {
+        background: rgba($neon-cyan, 0.2);
+        border-color: rgba($neon-cyan, 0.45);
+      }
+    }
+  }
+
+  /* 冒险者公会 - 紫色 */
+  &--guild {
+    background: linear-gradient(90deg, rgba($neon-purple, 0.08), transparent);
+    border-left: 2px solid rgba($neon-purple, 0.3);
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+
+    .sb-btn-icon {
+      background: rgba($neon-purple, 0.12);
+      border: 1px solid rgba($neon-purple, 0.25);
+      clip-path: polygon(
+        0 2px,
+        2px 2px,
+        2px 0,
+        calc(100% - 2px) 0,
+        calc(100% - 2px) 2px,
+        100% 2px,
+        100% calc(100% - 2px),
+        calc(100% - 2px) calc(100% - 2px),
+        calc(100% - 2px) 100%,
+        2px 100%,
+        2px calc(100% - 2px),
+        0 calc(100% - 2px)
+      );
+    }
+
+    .sb-btn-icon i {
+      color: $neon-purple;
+    }
+    .sb-btn-text {
+      color: #b8c5e0;
+    }
+
+    &:hover {
+      background: linear-gradient(90deg, rgba($neon-purple, 0.14), transparent);
+      border-left-color: rgba($neon-purple, 0.55);
+      .sb-btn-icon {
+        background: rgba($neon-purple, 0.2);
+        border-color: rgba($neon-purple, 0.45);
+      }
+    }
+  }
+
+  /* 冒险模式 - 金色 */
+  &--adventure {
+    background: linear-gradient(90deg, rgba($neon-magenta, 0.08), transparent);
+    border-left: 2px solid rgba($neon-magenta, 0.3);
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+
+    .sb-btn-icon {
+      background: rgba($neon-magenta, 0.12);
+      border: 1px solid rgba($neon-magenta, 0.25);
+      clip-path: polygon(
+        0 2px,
+        2px 2px,
+        2px 0,
+        calc(100% - 2px) 0,
+        calc(100% - 2px) 2px,
+        100% 2px,
+        100% calc(100% - 2px),
+        calc(100% - 2px) calc(100% - 2px),
+        calc(100% - 2px) 100%,
+        2px 100%,
+        2px calc(100% - 2px),
+        0 calc(100% - 2px)
+      );
+    }
+
+    .sb-btn-icon i {
+      color: $neon-magenta;
+    }
+    .sb-btn-text {
+      color: #ffe0a0;
+    }
+
+    &:hover {
+      background: linear-gradient(90deg, rgba($neon-magenta, 0.14), transparent);
+      border-left-color: rgba($neon-magenta, 0.55);
+      .sb-btn-icon {
+        background: rgba($neon-magenta, 0.2);
+        border-color: rgba($neon-magenta, 0.45);
+      }
+    }
+  }
 }
 </style>

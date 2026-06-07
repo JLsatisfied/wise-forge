@@ -20,8 +20,13 @@ const routes: any = [
     component: () => import('@/view/customer-service/index.vue')
   },
   {
+    path: '/adventure',
+    name: 'AdventurePage',
+    component: () => import('@/view/adventure/index.vue')
+  },
+  {
     path: '/:pathMatch',
-    name: '404',
+    name: '404Page',
     component: () => import('@/view/error/404.vue')
   }
 ]

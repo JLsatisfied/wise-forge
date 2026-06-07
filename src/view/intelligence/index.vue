@@ -519,6 +519,7 @@ const sendTxt = <T extends string>(value: T) => {
         adminContent: { adminText: '', isShow: true }
       })
     }
+    timeCount.value = allText.length - 1
     requestContent.push({
       role: 'user',
       content: messagesContent + wordOrpdfText.value
@@ -538,7 +539,19 @@ const sendTxt = <T extends string>(value: T) => {
       signal: ctrl.value.signal,
       openWhenHidden: true,
       onmessage(ev) {
-        let res = JSON.parse(ev.data)
+        // 跳过空数据、非 JSON 或结束标记，避免 JSON.parse 抛异常
+        if (!ev.data || ev.data === '[DONE]') return
+        let res: any
+        try {
+          res = JSON.parse(ev.data)
+        } catch {
+          return
+        }
+        // 捕获当前 timeCount 快照，防止 renderInWorker 异步回写时下标漂移
+        const snapshotIndex = timeCount.value
+        const msg = allText[snapshotIndex]
+        if (!msg) return
+
         lastScrollPosition.value = 0
         if (
           res.choices &&
@@ -547,31 +560,35 @@ const sendTxt = <T extends string>(value: T) => {
         ) {
           serviceThinkContent.value += res.choices[0].delta.reasoning_content
           renderInWorker(serviceThinkContent.value).then(thinkText => {
-            allText[timeCount.value].thinkContent!.thinkText = thinkText
+            if (allText[snapshotIndex]?.thinkContent) {
+              allText[snapshotIndex].thinkContent!.thinkText = thinkText
+            }
           })
-          //   allText[timeCount.value].thinkContent!.thinkText = getMdiText(serviceThinkContent.value)
-          allText[timeCount.value].thinkContent!.status = '1'
-          allText[timeCount.value].thinkContent!.isOpen = true
-          allText[timeCount.value].adminContent.isShow = false
+          if (msg.thinkContent) {
+            msg.thinkContent.status = '1'
+            msg.thinkContent.isOpen = true
+          }
+          msg.adminContent.isShow = false
           isStopText.value = true
         }
         if (serviceThinkContent.value && res.choices && res.choices[0].delta.content) {
-          allText[timeCount.value].thinkContent!.status = '3'
+          if (msg.thinkContent) msg.thinkContent.status = '3'
         }
         if (res.choices && res.choices[0].delta.content) {
           markdownContent.value += res.choices[0].delta.content
           responce += res.choices[0].delta.content
-          allText[timeCount.value].adminContent.isShow = false
+          msg.adminContent.isShow = false
           renderInWorker(markdownContent.value).then(adminText => {
-            allText[timeCount.value].adminContent.adminText = adminText
+            if (allText[snapshotIndex]) {
+              allText[snapshotIndex].adminContent.adminText = adminText
+            }
           })
-          // allText[timeCount.value].adminContent.adminText = getMdiText(markdownContent.value)
           isStopText.value = true
         }
         if (res.message) {
           isAnswering.value = false
-          allText[timeCount.value].adminContent.isShow = false
-          allText[timeCount.value].adminContent.adminText = res.message
+          msg.adminContent.isShow = false
+          msg.adminContent.adminText = res.message
         }
       },
       onclose() {
@@ -589,16 +606,18 @@ const sendTxt = <T extends string>(value: T) => {
         closeScroll.value = false
         clearFileText()
       },
-      onerror(e) {
+      onerror() {
+        const idx = timeCount.value
         if (apiModuleId.value == CONSTATNS.MODELS.REASONER_MODULE) {
-          allText[timeCount.value].thinkContent!.status = '2'
+          if (allText[idx]?.thinkContent) allText[idx].thinkContent!.status = '2'
         }
         isAnswering.value = false
-        allText[timeCount.value].adminContent.isShow = false
-        allText[timeCount.value].adminContent.adminText = CONSTATNS.MESSAGES.SERVER_ERROR
+        if (allText[idx]) {
+          allText[idx].adminContent.isShow = false
+          allText[idx].adminContent.adminText = CONSTATNS.MESSAGES.SERVER_ERROR
+        }
         timeCount.value = timeCount.value + 1
         responce = ''
-        throw showMessage(e, 'error')
       }
     })
   } else if (currentModel.value == CONSTATNS.MODELS.SPARK_ULTRA) {
@@ -644,7 +663,6 @@ const sendTxt = <T extends string>(value: T) => {
       openWhenHidden: true,
       onmessage(ev) {
         if (ev.data == '[DONE]') {
-          console.log('结束', timeCount.value)
           markdownContent.value = ''
           timeCount.value = timeCount.value + 1
           isAnswering.value = false
@@ -656,25 +674,28 @@ const sendTxt = <T extends string>(value: T) => {
           saveMessage()
           closeScroll.value = false
           clearFileText()
-        } else {
-          console.log('结果', ev)
-          let res = JSON.parse(ev.data)
+        } else if (ev.data) {
+          try {
+            var res = JSON.parse(ev.data)
+          } catch {
+            return
+          }
+          const snapshotIndex = timeCount.value
+          if (!allText[snapshotIndex] || !res.choices?.[0]?.delta?.content) return
           markdownContent.value += res.choices[0].delta.content
-          allText[timeCount.value].adminContent.isShow = false
+          allText[snapshotIndex].adminContent.isShow = false
           renderInWorker(markdownContent.value).then(xfText => {
-            console.log('timeCount', timeCount.value)
-            console.log('all', allText[timeCount.value])
-            allText[timeCount.value].adminContent.adminText = xfText
+            if (allText[snapshotIndex]) {
+              allText[snapshotIndex].adminContent.adminText = xfText
+            }
           })
-          // allText[timeCount.value].adminContent.adminText = getMdiText(markdownContent.value)
           isStopText.value = true
           lastScrollPosition.value = 0
         }
       },
       onclose() {},
-      onerror(e) {
+      onerror() {
         isAnswering.value = false
-        throw showMessage(e, 'error')
       }
     })
   }
