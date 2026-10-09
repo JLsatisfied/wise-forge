@@ -66,9 +66,9 @@ const CONSTATNS = {
   },
   // 模型相关
   MODELS: {
-    DEEPSEEK_V3: 'deepseek-v4-flash',
+    DEEPSEEK_V3: 'deepseek-flash',
     SPARK_ULTRA: 'spark-pro',
-    DEFAULT_MODULE: 'deepseek-v4-flash', // deepseek快速模式
+    DEFAULT_MODULE: 'deepseek-flash', // deepseek快速模式
     REASONER_MODULE: 'deepseek-reasoner' // deepseek思考模式
   },
   // 消息提示
