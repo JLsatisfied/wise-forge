@@ -1173,6 +1173,7 @@ const openUserProfile = () => {
         @save="saveUserProfile"
         @select-file="selectFile"
         @upload-img="upImg"
+        @update:nickname="editAll.nickname = $event"
       />
       <!-- 聊天区域 -->
       <div

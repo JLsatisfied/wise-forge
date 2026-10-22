@@ -8,35 +8,61 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'close': []
-  'save': []
+  close: []
+  save: []
   'select-file': []
   'upload-img': [event: Event]
+  'update:nickname': [value: string]
 }>()
 </script>
 
 <template>
   <Transition name="profile-modal">
-    <div v-if="showUserProfile" class="profile-modal__backdrop fixed inset-0 flex items-center justify-center z-50">
-      <div class="profile-modal__panel pixel-profile-card w-[min(92vw,420px)] p-7 sm:p-8" @click.stop>
+    <div
+      v-if="showUserProfile"
+      class="profile-modal__backdrop fixed inset-0 flex items-center justify-center z-50"
+    >
+      <div
+        class="profile-modal__panel pixel-profile-card w-[min(92vw,420px)] p-7 sm:p-8"
+        @click.stop
+      >
         <div class="flex justify-between items-center mb-5">
           <h3 class="pixel-profile-title text-lg font-semibold">冒险者档案</h3>
-          <button type="button" @click="emit('close')" class="pixel-profile-close w-9 h-9 flex items-center justify-center cursor-pointer" aria-label="关闭">
+          <button
+            type="button"
+            @click="emit('close')"
+            class="pixel-profile-close w-9 h-9 flex items-center justify-center cursor-pointer"
+            aria-label="关闭"
+          >
             <i class="fas fa-times"></i>
           </button>
         </div>
         <div class="flex flex-col items-center">
-          <div class="relative group mb-6 imgEdit pixel-profile-avatar-wrap" @click="emit('select-file')">
-            <img :src="editAll.img_url" class="w-24 h-24 object-cover pixel-profile-avatar" alt="用户头像"/>
-            <input type="file" @change="(e) => emit('upload-img', e as Event)">
-            <div class="absolute inset-0 pixel-profile-avatar-shade opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer">
+          <div
+            class="relative group mb-6 imgEdit pixel-profile-avatar-wrap"
+            @click="emit('select-file')"
+          >
+            <img
+              :src="editAll.img_url"
+              class="w-24 h-24 object-cover pixel-profile-avatar"
+              alt="用户头像"
+            />
+            <input type="file" @change="e => emit('upload-img', e as Event)" />
+            <div
+              class="absolute inset-0 pixel-profile-avatar-shade opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer"
+            >
               <i class="fas fa-camera text-white text-xl"></i>
             </div>
           </div>
           <div class="w-full space-y-4">
             <div>
               <label class="block text-sm pixel-label mb-1.5">昵称</label>
-              <input type="text" :value="editAll.nickname" @input="(e) => editAll.nickname = (e.target as HTMLInputElement).value" class="w-full px-4 py-2.5 pixel-input name-border"/>
+              <input
+                type="text"
+                :value="editAll.nickname"
+                @input="e => emit('update:nickname', (e.target as HTMLInputElement).value)"
+                class="w-full px-4 py-2.5 pixel-input name-border"
+              />
             </div>
             <div>
               <label class="block text-sm pixel-label mb-1.5">冒险者账号</label>
@@ -44,10 +70,18 @@ const emit = defineEmits<{
             </div>
           </div>
           <div class="flex gap-3 mt-7 w-full">
-            <button type="button" @click="emit('close')" class="pixel-btn pixel-btn-ghost flex-1 py-2.5 cursor-pointer">
+            <button
+              type="button"
+              @click="emit('close')"
+              class="pixel-btn pixel-btn-ghost flex-1 py-2.5 cursor-pointer"
+            >
               取消
             </button>
-            <button type="button" @click="emit('save')" class="pixel-btn pixel-btn-primary flex-1 py-2.5 cursor-pointer">
+            <button
+              type="button"
+              @click="emit('save')"
+              class="pixel-btn pixel-btn-primary flex-1 py-2.5 cursor-pointer"
+            >
               保存
             </button>
           </div>
@@ -110,15 +144,23 @@ const emit = defineEmits<{
     0 0 60px rgba($neon-magenta, 0.15),
     0 20px 50px rgba(0, 0, 0, 0.5);
   clip-path: polygon(
-    0 8px, 8px 8px, 8px 0,
-    calc(100% - 8px) 0, calc(100% - 8px) 8px, 100% 8px,
-    100% calc(100% - 8px), calc(100% - 8px) calc(100% - 8px), calc(100% - 8px) 100%,
-    8px 100%, 8px calc(100% - 8px), 0 calc(100% - 8px)
+    0 8px,
+    8px 8px,
+    8px 0,
+    calc(100% - 8px) 0,
+    calc(100% - 8px) 8px,
+    100% 8px,
+    100% calc(100% - 8px),
+    calc(100% - 8px) calc(100% - 8px),
+    calc(100% - 8px) 100%,
+    8px 100%,
+    8px calc(100% - 8px),
+    0 calc(100% - 8px)
   );
 }
 
 .pixel-profile-title {
-  font-family: myFirstFont, "VT323", ui-monospace, monospace;
+  font-family: myFirstFont, 'VT323', ui-monospace, monospace;
   font-size: 1.35rem;
   font-weight: normal;
   color: #fff;
@@ -158,12 +200,22 @@ const emit = defineEmits<{
 
 .pixel-profile-avatar {
   border: 2px solid $neon-cyan;
-  box-shadow: 0 0 15px rgba($neon-cyan, 0.3), 0 0 30px rgba($neon-cyan, 0.1);
+  box-shadow:
+    0 0 15px rgba($neon-cyan, 0.3),
+    0 0 30px rgba($neon-cyan, 0.1);
   clip-path: polygon(
-    0 6px, 6px 6px, 6px 0,
-    calc(100% - 6px) 0, calc(100% - 6px) 6px, 100% 6px,
-    100% calc(100% - 6px), calc(100% - 6px) calc(100% - 6px), calc(100% - 6px) 100%,
-    6px 100%, 6px calc(100% - 6px), 0 calc(100% - 6px)
+    0 6px,
+    6px 6px,
+    6px 0,
+    calc(100% - 6px) 0,
+    calc(100% - 6px) 6px,
+    100% 6px,
+    100% calc(100% - 6px),
+    calc(100% - 6px) calc(100% - 6px),
+    calc(100% - 6px) 100%,
+    6px 100%,
+    6px calc(100% - 6px),
+    0 calc(100% - 6px)
   );
 }
 
@@ -199,6 +251,6 @@ const emit = defineEmits<{
 }
 
 .imgEdit input {
-    display: none;
+  display: none;
 }
 </style>
