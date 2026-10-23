@@ -15,10 +15,23 @@ type imgObject = {
     isShow: boolean;
 }
 
+type searchResultObject = {
+    title?: string;
+    url: string;
+    snippet?: string;
+    summary?: string;
+    site_name?: string | null;
+    site_icon?: string | null;
+    date?: string | null;
+    rerank_score?: number;
+    authority?: number;
+}
+
 type allInstall = {
     userText: string;
     adminContent: adminObject;
     thinkContent?: thinkObject;
+    searchResults?: searchResultObject[];
     category_id?: number;
     classify?: string;
     introduce?: string;
@@ -71,6 +84,7 @@ type requestObject = {
 
 export type {
     allInstall,
+    searchResultObject,
     categories,
     menuObject,
     promptObject,

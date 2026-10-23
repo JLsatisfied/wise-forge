@@ -52,7 +52,8 @@ const router = useRouter()
         <span class="sb-btn-text">冒险模式</span>
       </button>
     </div>
-    <div class="flex-1 overflow-y-auto space-y-2 new-dialogue px-2 pb-3">
+    <div class="flex-1 overflow-y-auto new-dialogue">
+      <p class="sb-section-label">最近对话</p>
       <template v-if="isLoadingCategories && !categoryData.length">
         <div class="p-1" v-for="n in 4" :key="'skeleton-sidebar-' + n">
           <div class="header effect pixel-list-item skeleton-list-item">
@@ -95,335 +96,257 @@ const router = useRouter()
 </template>
 
 <style lang="scss" scoped>
-@use '@/styles/pixel-theme' as *;
-
 .pixel-sidebar {
-  @include neon-pixel-panel;
-
-  margin: 0;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 30;
+  width: var(--sidebar-w);
+  max-width: var(--sidebar-w);
   height: 100vh;
-  width: $sidebar-w;
-  max-width: $sidebar-w;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 12px 12px;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 2px 0 8px rgba(16, 24, 40, 0.03);
   box-sizing: border-box;
-  border-radius: 0;
-  border-top: none;
-  border-bottom: none;
-  border-left: none;
-  background: rgba(13, 22, 36, 0.96);
-  box-shadow:
-    4px 0 30px rgba(0, 0, 0, 0.4),
-    inset -3px 0 0 rgba($neon-cyan, 0.05);
-  clip-path: none;
 }
 
 .pixel-sidebar-head {
-  border-bottom: 2px dashed rgba($neon-cyan, 0.2);
+  padding: 0 0 10px;
 }
 
 .pixel-icon-tile {
-  background: rgba($neon-cyan, 0.1);
-  border: 2px solid $pixel-border;
-  border-radius: 0;
-  box-shadow:
-    0 0 10px rgba($neon-cyan, 0.3),
-    inset 1px 1px 0 rgba(255, 255, 255, 0.05);
-  transition:
-    transform 0.1s ease,
-    box-shadow 0.08s ease,
-    filter 0.1s ease;
-  clip-path: polygon(
-    0 4px,
-    4px 4px,
-    4px 0,
-    calc(100% - 4px) 0,
-    calc(100% - 4px) 4px,
-    100% 4px,
-    100% calc(100% - 4px),
-    calc(100% - 4px) calc(100% - 4px),
-    calc(100% - 4px) 100%,
-    4px 100%,
-    4px calc(100% - 4px),
-    0 calc(100% - 4px)
-  );
-
-  &:hover {
-    transform: translateY(-1px);
-    filter: brightness(1.1);
-    box-shadow: 0 0 15px rgba($neon-cyan, 0.5);
-  }
-
-  &:active {
-    transform: translate(1px, 2px);
-    filter: brightness(0.9);
-    box-shadow:
-      inset 2px 2px 4px rgba(0, 0, 0, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1),
-      1px 1px 0 rgba(0, 0, 0, 0.2);
-  }
-}
-
-.pixel-list-text {
-  color: $pixel-text;
-}
-
-.pixel-list-item {
-  border: 2px solid transparent;
-  transition:
-    transform 0.07s ease-out,
-    box-shadow 0.07s ease-out,
-    background 0.15s ease,
-    border-color 0.15s ease;
-
-  &:hover {
-    background: rgba($neon-cyan, 0.1);
-    border-color: rgba($neon-cyan, 0.3);
-    box-shadow: 0 0 10px rgba($neon-cyan, 0.15);
-  }
-
-  &:active {
-    transform: translate(1px, 2px);
-    background: rgba($neon-cyan, 0.15);
-    box-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.2);
-  }
-}
-
-.pixel-list-item--active {
-  background: rgba($neon-cyan, 0.2);
-  border-color: rgba($neon-cyan, 0.4);
-  box-shadow: 0 0 15px rgba($neon-cyan, 0.25);
-}
-
-.new-dialogue::-webkit-scrollbar {
-  width: 5px;
-}
-
-.new-dialogue::-webkit-scrollbar-thumb {
-  background-color: transparent;
-  border-radius: 5px;
-  transition: all 1s;
-}
-
-.new-dialogue:hover::-webkit-scrollbar-thumb {
-  background-color: rgba($neon-cyan, 0.3);
-}
-
-.list-icon {
-  position: relative;
-  width: 30px;
-  height: 30px;
-  flex-shrink: 0;
-}
-
-.restrict {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  width: 185px;
-}
-
-.header {
-  font-size: 14px;
-  color: $pixel-text;
+  aspect-ratio: 1;
   display: flex;
   align-items: center;
-  padding-bottom: 14px;
-  user-select: none;
+  justify-content: center;
+  border: none;
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--text-3);
+  cursor: pointer;
+  transition:
+    background-color 0.18s var(--ease),
+    color 0.18s var(--ease);
+
+  i {
+    font-size: 16px;
+    color: inherit;
+  }
+
+  &:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  &:active {
+    background: var(--surface-3);
+  }
 }
 
-.header .profile {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  border: 2px solid $neon-cyan;
-  box-shadow: 0 0 10px rgba($neon-cyan, 0.3);
+.pixel-icon-accent {
+  color: var(--text-3);
 }
 
-.header.effect {
-  padding-bottom: 0;
-  padding: 10px 5px;
-  transition: all 1s;
-  margin-top: 20px;
+.pixel-sidebar-head .grid {
+  margin-bottom: 18px;
 }
 
-.header.effect:first-child {
-  margin-top: 0;
-}
-
-.header-right {
-  margin-left: 10px;
-}
-
-/* ===== 侧边栏特色按钮 ===== */
 .sb-btn {
   width: 100%;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 14px;
+  padding: 9px 10px;
   border: none;
-  color: $pixel-text;
-  font-size: 14px;
-  letter-spacing: 1px;
-  cursor: pointer;
-  transition: all 0.18s ease;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 500;
   text-align: left;
-  position: relative;
+  cursor: pointer;
+  transition:
+    background-color 0.18s var(--ease),
+    color 0.18s var(--ease);
 
   & + & {
-    margin-top: 10px;
+    margin-top: 4px;
+  }
+
+  .sb-btn-text {
+    color: inherit;
   }
 
   .sb-btn-icon {
     width: 28px;
     height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    transition: all 0.18s ease;
     flex-shrink: 0;
-  }
-
-  .sb-btn-text {
-    transition: all 0.18s ease;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    background: var(--surface-2);
+    color: var(--text-2);
+    font-size: 12px;
+    transition:
+      background-color 0.18s var(--ease),
+      color 0.18s var(--ease);
   }
 
   &:hover {
+    background: var(--surface-hover);
+    color: var(--text);
+
     .sb-btn-icon {
-      transform: scale(1.1);
+      background: var(--surface-3);
     }
   }
 
   &:active {
-    .sb-btn-icon {
-      transform: scale(0.95);
-    }
+    background: var(--surface-3);
   }
 
-  /* 开启冒险 - 青绿 */
   &--quest {
-    background: linear-gradient(90deg, rgba($neon-cyan, 0.08), transparent);
-    border-left: 2px solid rgba($neon-cyan, 0.3);
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+    background: var(--accent);
+    color: #fff;
 
     .sb-btn-icon {
-      background: rgba($neon-cyan, 0.12);
-      border: 1px solid rgba($neon-cyan, 0.25);
-      clip-path: polygon(
-        0 2px,
-        2px 2px,
-        2px 0,
-        calc(100% - 2px) 0,
-        calc(100% - 2px) 2px,
-        100% 2px,
-        100% calc(100% - 2px),
-        calc(100% - 2px) calc(100% - 2px),
-        calc(100% - 2px) 100%,
-        2px 100%,
-        2px calc(100% - 2px),
-        0 calc(100% - 2px)
-      );
-    }
-
-    .sb-btn-icon i {
-      color: $neon-cyan;
-    }
-    .sb-btn-text {
-      color: $neon-cyan-light;
+      background: rgba(255, 255, 255, 0.18);
+      color: #fff;
     }
 
     &:hover {
-      background: linear-gradient(90deg, rgba($neon-cyan, 0.14), transparent);
-      border-left-color: rgba($neon-cyan, 0.55);
+      background: var(--accent-hover);
+      color: #fff;
+
       .sb-btn-icon {
-        background: rgba($neon-cyan, 0.2);
-        border-color: rgba($neon-cyan, 0.45);
+        background: rgba(255, 255, 255, 0.24);
       }
+    }
+
+    &:active {
+      background: var(--accent-active);
     }
   }
 
-  /* 冒险者公会 - 紫色 */
   &--guild {
-    background: linear-gradient(90deg, rgba($neon-purple, 0.08), transparent);
-    border-left: 2px solid rgba($neon-purple, 0.3);
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
-
     .sb-btn-icon {
-      background: rgba($neon-purple, 0.12);
-      border: 1px solid rgba($neon-purple, 0.25);
-      clip-path: polygon(
-        0 2px,
-        2px 2px,
-        2px 0,
-        calc(100% - 2px) 0,
-        calc(100% - 2px) 2px,
-        100% 2px,
-        100% calc(100% - 2px),
-        calc(100% - 2px) calc(100% - 2px),
-        calc(100% - 2px) 100%,
-        2px 100%,
-        2px calc(100% - 2px),
-        0 calc(100% - 2px)
-      );
-    }
-
-    .sb-btn-icon i {
-      color: $neon-purple;
-    }
-    .sb-btn-text {
-      color: #b8c5e0;
-    }
-
-    &:hover {
-      background: linear-gradient(90deg, rgba($neon-purple, 0.14), transparent);
-      border-left-color: rgba($neon-purple, 0.55);
-      .sb-btn-icon {
-        background: rgba($neon-purple, 0.2);
-        border-color: rgba($neon-purple, 0.45);
-      }
+      background: var(--info-soft);
+      color: var(--info);
     }
   }
 
-  /* 冒险模式 - 金色 */
   &--adventure {
-    background: linear-gradient(90deg, rgba($neon-magenta, 0.08), transparent);
-    border-left: 2px solid rgba($neon-magenta, 0.3);
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
-
     .sb-btn-icon {
-      background: rgba($neon-magenta, 0.12);
-      border: 1px solid rgba($neon-magenta, 0.25);
-      clip-path: polygon(
-        0 2px,
-        2px 2px,
-        2px 0,
-        calc(100% - 2px) 0,
-        calc(100% - 2px) 2px,
-        100% 2px,
-        100% calc(100% - 2px),
-        calc(100% - 2px) calc(100% - 2px),
-        calc(100% - 2px) 100%,
-        2px 100%,
-        2px calc(100% - 2px),
-        0 calc(100% - 2px)
-      );
+      background: var(--warning-soft);
+      color: var(--warning);
     }
+  }
+}
 
-    .sb-btn-icon i {
-      color: $neon-magenta;
-    }
-    .sb-btn-text {
-      color: #ffe0a0;
-    }
+.sb-section-label {
+  margin: 16px 4px 8px;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.4px;
+}
 
-    &:hover {
-      background: linear-gradient(90deg, rgba($neon-magenta, 0.14), transparent);
-      border-left-color: rgba($neon-magenta, 0.55);
-      .sb-btn-icon {
-        background: rgba($neon-magenta, 0.2);
-        border-color: rgba($neon-magenta, 0.45);
-      }
-    }
+.new-dialogue {
+  flex: 1;
+  overflow-y: auto;
+  margin: 0 -4px;
+  padding: 0 4px 4px;
+}
+
+.pixel-list-item {
+  display: flex;
+  align-items: center;
+  padding: 9px 8px;
+  margin-bottom: 2px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--text);
+  user-select: none;
+  cursor: pointer;
+  transition:
+    background-color 0.16s var(--ease),
+    border-color 0.16s var(--ease);
+
+  &:hover {
+    background: var(--surface-hover);
+  }
+
+  &:active {
+    background: var(--surface-3);
+  }
+}
+
+.pixel-list-item--active {
+  background: var(--accent-soft);
+  border-color: var(--accent-ring);
+
+  &:hover {
+    background: var(--accent-soft);
+  }
+}
+
+.pixel-list-text {
+  color: var(--text);
+}
+
+.list-icon {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  margin-left: 2px;
+}
+
+.header .profile {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-2);
+}
+
+.header-right {
+  flex: 1;
+  min-width: 0;
+  margin-left: 10px;
+}
+
+.header-right .name {
+  margin: 0 0 2px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.header-right .restrict {
+  margin: 0;
+  width: 100%;
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.skeleton-list-item {
+  cursor: default;
+
+  &:hover {
+    background: transparent;
   }
 }
 </style>

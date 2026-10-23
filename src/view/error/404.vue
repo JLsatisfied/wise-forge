@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import ThemeToggle from '@/components/ThemeToggle.vue'
 
 const router = useRouter()
 
@@ -10,6 +11,7 @@ defineOptions({
 
 <template>
   <div class="flex">
+    <ThemeToggle class="not-found-theme" />
     <svg width="252" height="294">
       <g fill="none">
         <path
@@ -219,41 +221,66 @@ p {
 }
 
 .flex {
+  position: relative;
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  min-height: 100vh;
+  padding: 40px 24px;
+  box-sizing: border-box;
+  background: var(--bg);
+  color: var(--text);
 
   svg {
-    animation: svg_left 1s ease 1;
+    flex-shrink: 0;
+    animation: svg_left 0.5s var(--ease) 1;
+  }
+}
+
+.not-found-theme {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+}
+
+.error-content {
+  margin-left: 48px;
+
+  .error-code {
+    color: var(--text);
+    font-size: 36px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    animation: text_right 0.5s var(--ease) 1;
   }
 
-  .error-content {
-    margin-left: 48px;
+  .error-text {
+    margin: 24px 0 28px;
+    color: var(--text-2);
+    font-size: 15px;
+    animation: text_right 0.5s var(--ease) 1;
+  }
 
-    .error-code {
-      font-size: 36px;
-      font-weight: 500;
-      animation: text_right 1s ease 1;
-    }
+  .back {
+    animation: text_right 0.5s var(--ease) 1;
+  }
+}
 
-    .error-text {
-      color: rgb(107, 114, 128);
-      font-size: 16px;
-      margin: 30px 0;
-      animation: text_right 1s ease 1;
-    }
+/* 深色模式下调整插画底板 */
+:global(html.dark) .flex {
+  svg path[fill='#E4EBF7'] {
+    fill: var(--surface-3);
+  }
 
-    .back {
-      animation: text_right 1s ease 1;
-    }
+  svg path[stroke='#E4EBF7'] {
+    stroke: var(--border-strong);
   }
 }
 
 @keyframes text_right {
   0% {
-    transform: translateX(100px);
+    transform: translateX(24px);
     opacity: 0.3;
   }
 
@@ -265,13 +292,26 @@ p {
 
 @keyframes svg_left {
   0% {
-    transform: translateX(-100px);
+    transform: translateX(-24px);
     opacity: 0.3;
   }
 
   100% {
     transform: translateX(0);
     opacity: 1;
+  }
+}
+
+@media (width <= 760px) {
+  .flex {
+    flex-direction: column;
+    gap: 24px;
+    padding: 72px 24px 48px;
+  }
+
+  .error-content {
+    margin-left: 0;
+    text-align: center;
   }
 }
 </style>

@@ -13,9 +13,25 @@ export const aicgApi = {
     addDialogue(reqBody: any) {
         return httpDefault.post('/addDialogue', reqBody)
     },
+    // 覆盖保存整段对话接口（编辑重发后同步当前活动分支）
+    replaceDialogue(reqBody: object) {
+        return httpDefault.post('/replaceDialogue', reqBody)
+    },
     // 查询大模型对话接口
     queryDialogue(reqBody: object) {
         return httpDefault.get('/queryDialogue', reqBody)
+    },
+    // 保存对话分支树接口
+    saveDialogueTree(reqBody: object) {
+        return httpDefault.post('/saveDialogueTree', reqBody)
+    },
+    // 查询对话分支树接口
+    queryDialogueTree(reqBody: object) {
+        return httpDefault.get('/queryDialogueTree', reqBody)
+    },
+    // 联网搜索接口
+    webSearch(reqBody: object) {
+        return httpDefault.post('/webSearch', reqBody)
     },
     // 查询用户大模型分类
     queryCategory(reqBody: object) {

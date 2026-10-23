@@ -8,6 +8,8 @@ const props = defineProps<{
   isAnswering: boolean
   isStopText: boolean
   isDeepThinking: boolean
+  webSearch: boolean
+  webSearchDisabled: boolean
   isDisabled: boolean
   contentText: string
 }>()
@@ -17,6 +19,7 @@ const emit = defineEmits<{
   'send': [value: string]
   'stop-export': []
   'toggle-deep-thinking': []
+  'toggle-web-search': []
   'parse-file-input': [event: Event]
   'clear-file-text': []
   'open-url': []
@@ -67,21 +70,39 @@ watch(() => props.filenameAll.isFileContent, (val) => {
     </div>
     <div class="flex items-center gap-2 min-w-0" :class="filenameAll.isFileContent ? 'mt-3' : ''">
       <input type="file" ref="parseFile" @change="(e) => emit('parse-file-input', e as Event)" style="display: none;">
-      <el-tooltip class="box-item" effect="dark" content="投递卷轴" placement="top">
-        <button type="button" class="p-2 pixel-tool-btn cursor-pointer" @click="openFile">
-          <i class="fas fa-paperclip pixel-text-muted"></i>
-        </button>
-      </el-tooltip>
-      <el-tooltip class="box-item" effect="dark" :content="isAnswering ? '回答中，无法导出' : '导出卷轴'" placement="top">
-        <button type="button" class="p-2 pixel-tool-btn cursor-pointer" :disabled="isAnswering" :style="isAnswering ? { opacity: '0.4', cursor: 'not-allowed' } : {}" @click="emit('export-conversation')">
-          <i class="fas fa-download pixel-text-muted"></i>
-        </button>
-      </el-tooltip>
-      <el-tooltip class="box-item" effect="dark" content="清除冒险日志" placement="top">
-        <button type="button" class="p-2 pixel-tool-btn cursor-pointer" @click="emit('clear')">
-          <i class="fas fa-trash-alt pixel-text-muted" title="清除冒险日志"></i>
-        </button>
-      </el-tooltip>
+      <div class="input-tools">
+        <el-tooltip class="box-item" effect="dark" content="投递卷轴" placement="top">
+          <button type="button" class="p-2 pixel-tool-btn cursor-pointer" @click="openFile">
+            <i class="fas fa-paperclip pixel-text-muted"></i>
+          </button>
+        </el-tooltip>
+        <el-tooltip
+          class="box-item"
+          effect="dark"
+          :content="webSearchDisabled ? '讯飞模型暂不支持联网搜索' : webSearch ? '联网搜索已开启' : '联网搜索'"
+          placement="top"
+        >
+          <button
+            type="button"
+            class="p-2 pixel-tool-btn cursor-pointer"
+            :class="{ 'pixel-tool-btn--on': webSearch }"
+            :disabled="webSearchDisabled"
+            @click="emit('toggle-web-search')"
+          >
+            <i class="fas fa-globe" :class="webSearch ? '' : 'pixel-text-muted'"></i>
+          </button>
+        </el-tooltip>
+        <el-tooltip class="box-item" effect="dark" :content="isAnswering ? '回答中，无法导出' : '导出卷轴'" placement="top">
+          <button type="button" class="p-2 pixel-tool-btn cursor-pointer" :disabled="isAnswering" :style="isAnswering ? { opacity: '0.4', cursor: 'not-allowed' } : {}" @click="emit('export-conversation')">
+            <i class="fas fa-download pixel-text-muted"></i>
+          </button>
+        </el-tooltip>
+        <el-tooltip class="box-item" effect="dark" content="清除冒险日志" placement="top">
+          <button type="button" class="p-2 pixel-tool-btn cursor-pointer" @click="emit('clear')">
+            <i class="fas fa-trash-alt pixel-text-muted" title="清除冒险日志"></i>
+          </button>
+        </el-tooltip>
+      </div>
       <textarea
         :value="contentText"
         @input="emit('update:contentText', ($event.target as HTMLTextAreaElement).value); emit('textarea-input', $event)"
@@ -110,144 +131,260 @@ watch(() => props.filenameAll.isFileContent, (val) => {
 </template>
 
 <style lang="scss" scoped>
-@use '@/styles/pixel-theme' as *;
-
 .pixel-input-panel {
-  @include neon-pixel-panel;
-
-  background: $pixel-dialog-bg;
+  flex-shrink: 0;
+  margin-top: 16px;
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: 0 4px 16px rgba(16, 24, 40, 0.06);
   max-width: 100%;
-  box-sizing: border-box;
   min-width: 0;
+  box-sizing: border-box;
+  transition:
+    border-color 0.18s var(--ease),
+    box-shadow 0.18s var(--ease);
+
+  &:focus-within {
+    border-color: var(--border-strong);
+    box-shadow: 0 6px 20px rgba(16, 24, 40, 0.09);
+  }
+}
+
+.input-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  padding-right: 8px;
+  border-right: 1px solid var(--border);
 }
 
 .pixel-file-sep {
-  border-bottom: 2px dashed rgba($neon-cyan, 0.15);
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
 }
 
 .pixel-file-card {
-  background: rgba($neon-cyan, 0.1);
-  border: 2px solid rgba($neon-cyan, 0.4);
-  backdrop-filter: blur(10px);
-  box-shadow:
-    0 0 10px rgba($neon-cyan, 0.2),
-    inset 1px 1px 0 rgba(255, 255, 255, 0.05);
-  clip-path: polygon(
-    0 3px, 3px 3px, 3px 0,
-    calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px,
-    100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%,
-    3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px)
-  );
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  max-width: 330px;
+  padding: 8px 10px 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  cursor: pointer;
   transition:
-    transform 0.12s ease,
-    box-shadow 0.08s ease,
-    filter 0.08s ease;
+    border-color 0.16s var(--ease),
+    background-color 0.16s var(--ease);
 
   &:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 0 15px rgba($neon-cyan, 0.4);
-  }
-
-  &:active {
-    transform: translate(1px, 1px);
-
-    @include pixel-press-shadow;
-
-    filter: brightness(0.96);
+    border-color: var(--border-strong);
+    background: var(--surface-3);
   }
 }
 
+.pixel-file-card .w-43 {
+  max-width: 210px;
+}
+
 .pixel-icon-btn {
-  color: $pixel-text-muted;
-  background: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
   border: none;
-  padding: 4px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
   transition:
-    transform 0.07s ease-out,
-    box-shadow 0.07s ease-out,
-    color 0.15s ease;
+    background-color 0.15s var(--ease),
+    color 0.15s var(--ease);
 
   &:hover {
-    color: #c97b7b;
-  }
-
-  &:active {
-    transform: translate(1px, 2px);
-
-    @include pixel-press-shadow;
-
-    color: #c97b7b;
+    background: var(--danger-soft);
+    color: var(--danger);
   }
 }
 
 .pixel-tool-btn {
-  border: 2px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 14px;
+  cursor: pointer;
   transition:
-    transform 0.07s ease-out,
-    box-shadow 0.07s ease-out,
-    background 0.12s ease,
-    border-color 0.12s ease;
+    background-color 0.15s var(--ease),
+    color 0.15s var(--ease);
 
   &:hover {
-    background: rgba($neon-cyan, 0.12);
-    border-color: rgba($neon-cyan, 0.3);
-    box-shadow: 0 0 10px rgba($neon-cyan, 0.2);
+    background: var(--surface-hover);
+    color: var(--text);
   }
 
   &:active {
-    transform: translate(1px, 2px);
-    background: rgba($neon-cyan, 0.18);
-    box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.2);
-    border-color: rgba($neon-cyan, 0.3);
+    background: var(--surface-3);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.pixel-tool-btn--on {
+  background: var(--accent-soft);
+  color: var(--accent);
+
+  i {
+    color: var(--accent);
+  }
+
+  &:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
   }
 }
 
 .pixel-textarea {
-  background: rgba(0, 0, 0, 0.4);
-  border: 2px solid rgba($neon-cyan, 0.3);
-  color: $pixel-text;
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  max-height: 168px;
+  padding: 10px 13px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.55;
   outline: none;
-  box-shadow:
-    inset 0 0 10px rgba(0, 0, 0, 0.3),
-    0 0 5px rgba($neon-cyan, 0.1);
-  clip-path: polygon(
-    0 3px, 3px 3px, 3px 0,
-    calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px,
-    100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%,
-    3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px)
-  );
+  overflow-y: auto;
+  transition:
+    background-color 0.18s var(--ease),
+    border-color 0.18s var(--ease),
+    box-shadow 0.18s var(--ease);
+
+  &::placeholder {
+    color: var(--text-3);
+  }
 
   &:focus {
-    border-color: $neon-cyan;
-    box-shadow:
-      inset 0 0 10px rgba(0, 0, 0, 0.3),
-      0 0 15px rgba($neon-cyan, 0.4),
-      0 0 30px rgba($neon-cyan, 0.2);
+    background: var(--surface);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-ring);
   }
 }
 
-.loading {
-    animation: api-debug_load__hsrQ8 2s linear infinite;
-    border-right: 2px solid $neon-cyan;
-    border-top: 2px solid $neon-cyan;
-    content: "";
-    display: block;
-    height: 20px;
-    width: 20px;
+.pixel-input-panel .pixel-chip {
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 500;
+  flex-shrink: 0;
+
+  i {
+    color: var(--text-3);
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--surface-3);
+    border-color: var(--border-strong);
+    color: var(--text);
+  }
 }
 
-.load {
-    display: flex;
-    letter-spacing: .5px;
-    line-height: 24px;
-    color: $pixel-text-muted;
+.pixel-input-panel .pixel-chip--on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+
+  i {
+    color: var(--accent);
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+}
+
+.pixel-input-panel .pixel-btn-primary {
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 10px;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  box-shadow: 0 4px 12px var(--accent-ring);
+
+  i {
+    font-size: 13px;
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+  }
+}
+
+.pixel-input-panel .pixel-btn-primary.area-disabled {
+  opacity: 0.45;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.loading {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: input-spin 0.8s linear infinite;
+}
+
+@keyframes input-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .area-disabled {
-    cursor: no-drop;
+  cursor: not-allowed;
 }
 
 .textarea-dialogue {
-    overflow: hidden;
+  overflow: hidden;
+  resize: none;
+}
+
+@media (width <= 900px) {
+  .pixel-input-panel {
+    padding: 10px;
+  }
+
+  .pixel-input-panel .pixel-chip {
+    padding: 0 10px;
+  }
 }
 </style>

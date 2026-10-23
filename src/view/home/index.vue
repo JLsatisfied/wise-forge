@@ -7,6 +7,7 @@ import { userApi } from '@/api/user.ts'
 import forge from 'node-forge'
 import { useStore } from '@/store/index.ts'
 import useFileUpload from '@/composables/useFileUpload.ts'
+import ThemeToggle from '@/components/ThemeToggle.vue'
 
 defineOptions({
   name: 'HomePage'
@@ -23,18 +24,29 @@ const freeLogin = ref(false)
 const svgSrc = ref('')
 const isInvoke = ref(false)
 const pubKey = ref('') // rsa公钥
-const stars = ref(
-  Array.from({ length: 20 }, () => ({
-    left: Math.random() * 100 + '%',
-    top: Math.random() * 60 + '%',
-    delay: Math.random() * 2 + 's'
-  }))
-)
 
 const features = [
-  { icon: '◇', title: 'AI 魔法对话', desc: '多模型智能问答', color: '#7dd8c7' },
-  { icon: '◆', title: '模板工坊', desc: '百变角色预设', color: '#d8a657' },
-  { icon: '◈', title: '智能客服', desc: '一键嵌入站点', color: '#6d7fb6' }
+  {
+    icon: 'fas fa-comments',
+    title: 'AI 魔法对话',
+    desc: '多模型智能问答',
+    color: '#4f6ef7',
+    bg: 'rgba(79, 110, 247, 0.1)'
+  },
+  {
+    icon: 'fas fa-layer-group',
+    title: '模板工坊',
+    desc: '百变角色预设',
+    color: '#d97706',
+    bg: 'rgba(217, 119, 6, 0.1)'
+  },
+  {
+    icon: 'fas fa-headset',
+    title: '智能客服',
+    desc: '一键嵌入站点',
+    color: '#0ea5e9',
+    bg: 'rgba(14, 165, 233, 0.1)'
+  }
 ]
 
 const typedText = computed(() => {
@@ -83,11 +95,11 @@ const passwordStrength = computed(() => {
   if (/[^a-zA-Z0-9]/.test(pwd)) score++
   const levels = [
     { level: 0, label: '', color: '', width: '0%' },
-    { level: 1, label: '弱不禁风', color: '#c97b7b', width: '20%' },
-    { level: 2, label: '初入江湖', color: '#f3c766', width: '40%' },
-    { level: 3, label: '勇者之盾', color: '#7dd8c7', width: '65%' },
-    { level: 4, label: '史诗护符', color: '#d8a657', width: '85%' },
-    { level: 5, label: '传说结界', color: '#c9fff2', width: '100%' }
+    { level: 1, label: '弱不禁风', color: '#dc2626', width: '20%' },
+    { level: 2, label: '初入江湖', color: '#d97706', width: '40%' },
+    { level: 3, label: '勇者之盾', color: '#4f6ef7', width: '65%' },
+    { level: 4, label: '史诗护符', color: '#2563eb', width: '85%' },
+    { level: 5, label: '传说结界', color: '#16a34a', width: '100%' }
   ]
   return levels[Math.min(score, 5)]
 })
@@ -464,57 +476,89 @@ onMounted(() => {
 
 <template>
   <div class="home">
-    <!-- 像素风格背景装饰 -->
-    <div class="pixel-bg">
-      <div class="pixel-grid"></div>
-      <div class="pixel-stars">
-        <span
-          v-for="(star, i) in stars"
-          :key="i"
-          class="star"
-          :style="{
-            left: star.left,
-            top: star.top,
-            animationDelay: star.delay
-          }"
-        ></span>
-      </div>
-    </div>
+    <div class="home-glow home-glow--1"></div>
+    <div class="home-glow home-glow--2"></div>
 
-    <div class="character">
-      <img src="./images/Serendale.png" alt="" />
-    </div>
-    <div class="middle pt-65 ml-120">
-      <h1 class="title">冒险纪元</h1>
-      <span class="text">{{ typedText }}</span>
-    </div>
-    <div class="btn ml-120">
-      <div class="btn-default login pixel-btn" @click="openDialog">开启旅途</div>
-    </div>
-    <div class="features ml-120">
-      <div
-        v-for="(feat, i) in features"
-        :key="i"
-        class="feature-card"
-        :style="{
-          '--feat-color': feat.color,
-          animationDelay: 0.3 + i * 0.2 + 's'
-        }"
-      >
-        <span class="feature-icon">{{ feat.icon }}</span>
-        <div class="feature-info">
-          <span class="feature-title">{{ feat.title }}</span>
-          <span class="feature-desc">{{ feat.desc }}</span>
+    <header class="home-header">
+      <div class="brand">
+        <span class="brand-mark"><i class="fas fa-compass"></i></span>
+        <div class="brand-copy">
+          <span class="brand-name">未来智匠</span>
+          <span class="brand-sub">WISE FORGE</span>
         </div>
       </div>
-    </div>
-    <div class="bottom-bar">
-      <span class="bar-item"> <span class="bar-icon">◆</span> 未来智匠 </span>
-      <span class="bar-divider">◇</span>
-      <span class="bar-item"> <span class="bar-icon">◆</span> AI 冒险世界 </span>
-      <span class="bar-divider">◇</span>
-      <span class="bar-item"> <span class="bar-icon">◆</span> 静候勇者 </span>
-    </div>
+      <div class="home-header-right">
+        <span class="status-pill"><span class="status-dot"></span>AI 服务在线</span>
+        <ThemeToggle />
+      </div>
+    </header>
+
+    <main class="home-main">
+      <section class="hero">
+        <span class="hero-eyebrow">AI 冒险创作平台</span>
+        <h1 class="title">冒险纪元</h1>
+        <p class="hero-text">
+          <span class="typed">{{ typedText }}</span><span class="caret"></span>
+        </p>
+        <p class="hero-desc">
+          与 AI 一起构建角色、续写故事、探索未知世界。简洁、专注、随时启程。
+        </p>
+        <div class="hero-actions">
+          <button class="primary-btn" type="button" @click="openDialog">
+            开启旅途 <i class="fas fa-arrow-right"></i>
+          </button>
+          <span class="hero-note"><i class="fas fa-circle-check"></i> 注册即可免费体验</span>
+        </div>
+
+        <div class="features">
+          <div v-for="(feat, i) in features" :key="i" class="feature-card">
+            <span class="feature-icon" :style="{ color: feat.color, background: feat.bg }">
+              <i :class="feat.icon"></i>
+            </span>
+            <div class="feature-info">
+              <span class="feature-title">{{ feat.title }}</span>
+              <span class="feature-desc">{{ feat.desc }}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="hero-visual" aria-hidden="true">
+        <div class="visual-card">
+          <img src="./images/Serendale.png" alt="" />
+          <div class="visual-meta">
+            <span class="meta-dot"></span>
+            <div class="meta-copy">
+              <p class="meta-title">Serendale</p>
+              <p class="meta-sub">你的冒险，从这里开始</p>
+            </div>
+          </div>
+        </div>
+        <div class="float-card float-card--top">
+          <i class="fas fa-wand-magic-sparkles"></i>
+          <div>
+            <strong>AI 生成</strong>
+            <span>即时续写</span>
+          </div>
+        </div>
+        <div class="float-card float-card--bottom">
+          <i class="fas fa-shield-halved"></i>
+          <div>
+            <strong>隐私优先</strong>
+            <span>本地存储</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="bottom-bar">
+      <span class="bar-item">未来智匠</span>
+      <span class="bar-divider"></span>
+      <span class="bar-item">AI 冒险世界</span>
+      <span class="bar-divider"></span>
+      <span class="bar-item">静候勇者</span>
+      <span class="copyright">© 2026 Wise Forge</span>
+    </footer>
     <el-dialog
       v-model="dialogVisible"
       :width="
@@ -524,12 +568,15 @@ onMounted(() => {
       "
       center
       :show-close="false"
-      class="adventurer-auth-dialog pixel-dialog"
+      class="adventurer-auth-dialog app-dialog"
       align-center
     >
       <div class="auth-container">
         <div class="auth-header">
           <div class="header-content">
+            <div class="auth-icon" aria-hidden="true">
+              <i class="fas fa-compass"></i>
+            </div>
             <div class="pixel-decoration">
               <span class="pixel-gem"></span>
               <span class="pixel-gem"></span>
@@ -620,7 +667,7 @@ onMounted(() => {
           <div class="portrait">
             <div class="avatar">头像</div>
             <div class="avatar-img" @click="selectFile">
-              <el-icon :size="20" color="#4a7c3f" v-if="!registerForm.img_url"><Plus /></el-icon>
+              <el-icon :size="20" v-if="!registerForm.img_url"><Plus /></el-icon>
               <img v-else :src="registerForm.img_url" alt="" />
               <input type="file" ref="fileInput" @change="upImg" />
             </div>
@@ -657,18 +704,11 @@ onMounted(() => {
                   class="strength-bar-fill"
                   :style="{
                     width: passwordStrength.width,
-                    background: passwordStrength.color,
-                    boxShadow: `0 0 8px ${passwordStrength.color}`
+                    background: passwordStrength.color
                   }"
                 ></div>
               </div>
-              <span
-                class="strength-label"
-                :style="{
-                  color: passwordStrength.color,
-                  textShadow: `0 0 6px ${passwordStrength.color}`
-                }"
-              >
+              <span class="strength-label" :style="{ color: passwordStrength.color }">
                 {{ passwordStrength.label }}
               </span>
             </div>
@@ -800,1133 +840,828 @@ onMounted(() => {
 </template>
 
 <style lang="scss" scoped>
-@use 'sass:color';
-
-/* 精致奇幻像素游戏风格配色 */
-$neon-cyan: #7dd8c7;
-$neon-cyan-dark: #3f9f91;
-$neon-cyan-light: #c9fff2;
-$neon-magenta: #d8a657;
-$neon-magenta-dark: #9b6a2d;
-$neon-magenta-light: #ffe0a0;
-$neon-purple: #6d7fb6;
-$neon-purple-dark: #37446f;
-$neon-orange: #c87941;
-$neon-yellow: #f3c766;
-$pixel-bg-dark: #07111f;
-$pixel-bg: #101c2e;
-$pixel-dialog-bg: rgba(13, 22, 36, 0.96);
-$pixel-text: #f7ead0;
-$pixel-text-muted: #b6a989;
-$pixel-border: #31415b;
-
-h1,
-h2 {
-  margin: 0;
-}
-
 .home {
-  width: 100vw;
-  height: 100vh;
-  background:
-    radial-gradient(ellipse at 20% 80%, rgba($neon-magenta, 0.15) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 20%, rgba($neon-cyan, 0.15) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 50%, rgba($neon-purple, 0.1) 0%, transparent 70%),
-    linear-gradient(180deg, #0a0a12 0%, #12121f 50%, #0a0a12 100%);
   position: relative;
-  overflow: hidden;
-}
-
-/* 像素背景 */
-.pixel-bg {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-
-  .pixel-grid {
-    position: absolute;
-    inset: 0;
-    background-image:
-      linear-gradient(rgba($neon-cyan, 0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba($neon-cyan, 0.03) 1px, transparent 1px);
-    background-size: 4px 4px;
-  }
-
-  .pixel-stars {
-    position: absolute;
-    inset: 0;
-
-    .star {
-      position: absolute;
-      width: 2px;
-      height: 2px;
-      background: #fff;
-      animation: neon-twinkle 2s ease-in-out infinite;
-
-      &::before {
-        content: '';
-        position: absolute;
-        width: 6px;
-        height: 2px;
-        background: linear-gradient(90deg, transparent, rgba($neon-cyan, 0.8), transparent);
-        top: 0;
-        left: -2px;
-      }
-
-      &::after {
-        content: '';
-        position: absolute;
-        width: 2px;
-        height: 6px;
-        background: linear-gradient(180deg, transparent, rgba($neon-cyan, 0.8), transparent);
-        left: 0;
-        top: -2px;
-      }
-
-      &:nth-child(odd) {
-        &::before {
-          background: linear-gradient(90deg, transparent, rgba($neon-magenta, 0.8), transparent);
-        }
-
-        &::after {
-          background: linear-gradient(180deg, transparent, rgba($neon-magenta, 0.8), transparent);
-        }
-      }
-    }
-  }
-}
-
-@keyframes neon-twinkle {
-  0%,
-  100% {
-    opacity: 0.3;
-    transform: scale(0.8);
-  }
-
-  50% {
-    opacity: 1;
-    transform: scale(1.5);
-  }
-}
-
-@keyframes text-float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-
-  50% {
-    transform: translateY(-20px);
-  }
-}
-
-@keyframes neon-flicker {
-  0%,
-  19%,
-  21%,
-  23%,
-  25%,
-  54%,
-  56%,
-  100% {
-    text-shadow:
-      0 0 10px currentcolor,
-      0 0 20px currentcolor,
-      0 0 40px currentcolor,
-      0 0 80px currentcolor;
-  }
-
-  20%,
-  24%,
-  55% {
-    text-shadow: none;
-  }
-}
-
-.character {
-  position: absolute;
-  top: 30%;
-  left: 2%;
-
-  img {
-    image-rendering: pixelated;
-    filter: drop-shadow(0 0 10px rgba($neon-cyan, 0.5))
-      drop-shadow(0 0 20px rgba($neon-magenta, 0.3));
-  }
-}
-
-.middle {
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  padding: 0 clamp(20px, 5vw, 64px);
+  background: var(--bg);
+  overflow: clip;
 }
 
-.title {
-  font-family: myFirstFont;
-  font-size: 50px;
-  font-weight: bold;
-  color: #fff;
-  animation: text-float 3s infinite;
-  letter-spacing: 20px;
-  background: linear-gradient(135deg, $neon-cyan, $neon-magenta, $neon-cyan);
-  background-size: 200% 200%;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  filter: drop-shadow(0 0 30px rgba($neon-cyan, 0.5));
-  animation:
-    text-float 3s infinite,
-    gradient-shift 3s ease infinite;
-}
+.home-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  pointer-events: none;
+  opacity: 0.5;
 
-@keyframes gradient-shift {
-  0%,
-  100% {
-    background-position: 0% 50%;
+  &--1 {
+    width: 460px;
+    height: 460px;
+    top: -180px;
+    right: -80px;
+    background: var(--accent-soft);
   }
 
-  50% {
-    background-position: 100% 50%;
+  &--2 {
+    width: 380px;
+    height: 380px;
+    bottom: -160px;
+    left: -120px;
+    background: rgba(14, 165, 233, 0.1);
   }
 }
 
-.text {
-  color: $neon-cyan-light;
-  font-family: myFirstFont, 'Clash Grotesk';
-  font-size: 30px;
-  font-weight: 500;
-  text-align: center;
-  padding-top: 60px;
-  text-shadow:
-    0 0 10px rgba($neon-cyan, 0.8),
-    0 0 20px rgba($neon-cyan, 0.4);
-}
-
-.text::after {
-  display: inline-block;
-  content: '▮';
-  color: $neon-magenta;
-  animation: cursor-blink 0.8s step-end infinite;
-  margin-left: 4px;
-  text-shadow:
-    0 0 10px $neon-magenta,
-    0 0 20px $neon-magenta;
-}
-
-@keyframes cursor-blink {
-  0%,
-  50% {
-    opacity: 1;
-  }
-
-  51%,
-  100% {
-    opacity: 0;
-  }
-}
-
-.btn {
-  display: flex;
-  justify-content: center;
-  margin-top: 90px;
-  font-family: myFirstFont;
-}
-
-.btn-default {
-  width: 200px;
-  height: 60px;
-  line-height: 60px;
-  text-align: center;
-  cursor: pointer;
-  color: #fff;
-  font-size: 20px;
-  transition: all 0.2s ease;
-}
-
-/* 现代像素风格按钮 - 霓虹发光 */
-.pixel-btn {
-  margin-left: -1rem;
-  animation: card-fade-in 0.6s ease forwards;
-  background: linear-gradient(
-    180deg,
-    rgba($neon-purple, 0.35) 0%,
-    rgba($neon-purple, 0.18) 50%,
-    rgba($neon-purple, 0.08) 100%
-  );
-  border: 2px solid $neon-purple;
+.home-header {
   position: relative;
-  letter-spacing: 20px;
-  text-indent: 20px;
-  backdrop-filter: blur(10px);
-
-  /* 霓虹发光效果 */
-  box-shadow:
-    0 0 10px rgba($neon-purple, 0.5),
-    0 0 20px rgba($neon-purple, 0.3),
-    0 0 40px rgba($neon-purple, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
-  text-shadow: 0 0 10px $neon-purple;
-
-  /* 像素角效果 */
-  clip-path: polygon(
-    0 4px,
-    4px 4px,
-    4px 0,
-    calc(100% - 4px) 0,
-    calc(100% - 4px) 4px,
-    100% 4px,
-    100% calc(100% - 4px),
-    calc(100% - 4px) calc(100% - 4px),
-    calc(100% - 4px) 100%,
-    4px 100%,
-    4px calc(100% - 4px),
-    0 calc(100% - 4px)
-  );
-
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent);
-    opacity: 0;
-    transition: opacity 0.2s;
-  }
-
-  &:hover {
-    background: linear-gradient(
-      180deg,
-      rgba($neon-purple, 0.55) 0%,
-      rgba($neon-purple, 0.3) 50%,
-      rgba($neon-purple, 0.15) 100%
-    );
-    border-color: color.adjust($neon-purple, $lightness: 15%);
-    transform: translateY(-2px);
-    box-shadow:
-      0 0 15px rgba($neon-purple, 0.7),
-      0 0 30px rgba($neon-purple, 0.5),
-      0 0 60px rgba($neon-purple, 0.3),
-      0 5px 20px rgba($neon-purple, 0.4);
-
-    &::before {
-      opacity: 1;
-    }
-  }
-
-  &:active {
-    transform: translateY(1px);
-    box-shadow:
-      0 0 10px rgba($neon-purple, 0.5),
-      0 0 20px rgba($neon-purple, 0.3);
-  }
-}
-
-/* 功能特色卡片 */
-.features {
-  display: flex;
-  justify-content: center;
-  gap: 32px;
-  margin-top: 56px;
-}
-
-.feature-card {
+  z-index: 2;
+  width: 100%;
+  max-width: 1200px;
+  height: 76px;
+  margin: 0 auto;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 24px;
-  background: rgba($pixel-bg, 0.7);
-  border: 1px solid rgba($neon-cyan, 0.2);
-  backdrop-filter: blur(10px);
-  transition: all 0.3s ease;
-  opacity: 0;
-  animation: card-fade-in 0.6s ease forwards;
-  clip-path: polygon(
-    0 4px,
-    4px 4px,
-    4px 0,
-    calc(100% - 4px) 0,
-    calc(100% - 4px) 4px,
-    100% 4px,
-    100% calc(100% - 4px),
-    calc(100% - 4px) calc(100% - 4px),
-    calc(100% - 4px) 100%,
-    4px 100%,
-    4px calc(100% - 4px),
-    0 calc(100% - 4px)
-  );
-
-  &:hover {
-    border-color: var(--feat-color);
-    transform: translateY(-3px);
-    box-shadow:
-      0 0 15px color-mix(in srgb, var(--feat-color) 30%, transparent),
-      0 5px 20px rgba(0, 0, 0, 0.3);
-    background: rgba($pixel-bg, 0.85);
-
-    .feature-icon {
-      text-shadow: 0 0 12px var(--feat-color);
-      transform: scale(1.15);
-    }
-  }
+  justify-content: space-between;
+  flex-shrink: 0;
 }
 
-@keyframes card-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
 }
 
-.feature-icon {
-  font-size: 24px;
-  color: var(--feat-color);
-  transition: all 0.3s ease;
-  text-shadow: 0 0 6px var(--feat-color);
+.brand-mark {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 16px;
+  box-shadow: 0 6px 16px var(--accent-ring);
 }
 
-.feature-info {
+.brand-copy {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.feature-title {
-  color: $pixel-text;
-  font-size: 14px;
+.brand-name {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--text);
+}
+
+.brand-sub {
+  font-size: 9px;
   font-weight: 500;
-  letter-spacing: 2px;
+  letter-spacing: 2.4px;
+  color: var(--text-3);
 }
 
-.feature-desc {
-  color: $pixel-text-muted;
-  font-size: 12px;
-  letter-spacing: 1px;
+.home-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-/* 像素风格对话框 - 玻璃态霓虹边框 */
-.adventurer-auth-dialog {
-  &.pixel-dialog {
-    :deep(.el-dialog) {
-      border-radius: 0;
-      background: $pixel-dialog-bg;
-      border: 2px solid transparent;
-      position: relative;
-      backdrop-filter: blur(20px);
-
-      /* 像素角 */
-      clip-path: polygon(
-        0 8px,
-        8px 8px,
-        8px 0,
-        calc(100% - 8px) 0,
-        calc(100% - 8px) 8px,
-        100% 8px,
-        100% calc(100% - 8px),
-        calc(100% - 8px) calc(100% - 8px),
-        calc(100% - 8px) 100%,
-        8px 100%,
-        8px calc(100% - 8px),
-        0 calc(100% - 8px)
-      );
-
-      /* 霓虹边框效果 */
-      &::before {
-        content: '';
-        position: absolute;
-        inset: -2px;
-        background: linear-gradient(135deg, $neon-cyan, $neon-magenta, $neon-purple, $neon-cyan);
-        background-size: 300% 300%;
-        animation: border-glow 4s ease infinite;
-        z-index: -1;
-        clip-path: polygon(
-          0 8px,
-          8px 8px,
-          8px 0,
-          calc(100% - 8px) 0,
-          calc(100% - 8px) 8px,
-          100% 8px,
-          100% calc(100% - 8px),
-          calc(100% - 8px) calc(100% - 8px),
-          calc(100% - 8px) 100%,
-          8px 100%,
-          8px calc(100% - 8px),
-          0 calc(100% - 8px)
-        );
-      }
-
-      /* 内部遮罩 */
-      &::after {
-        content: '';
-        position: absolute;
-        inset: 2px;
-        background: $pixel-dialog-bg;
-        z-index: -1;
-        clip-path: polygon(
-          0 6px,
-          6px 6px,
-          6px 0,
-          calc(100% - 6px) 0,
-          calc(100% - 6px) 6px,
-          100% 6px,
-          100% calc(100% - 6px),
-          calc(100% - 6px) calc(100% - 6px),
-          calc(100% - 6px) 100%,
-          6px 100%,
-          6px calc(100% - 6px),
-          0 calc(100% - 6px)
-        );
-      }
-
-      box-shadow:
-        0 0 30px rgba($neon-cyan, 0.3),
-        0 0 60px rgba($neon-magenta, 0.2),
-        0 25px 50px rgba(0, 0, 0, 0.5);
-    }
-
-    :deep(.el-dialog__header) {
-      display: none;
-    }
-
-    :deep(.el-dialog__body) {
-      padding: 40px;
-      position: relative;
-      background: 
-        /* 扫描线效果 */ repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 2px,
-        rgba($neon-cyan, 0.01) 2px,
-        rgba($neon-cyan, 0.01) 4px
-      );
-    }
-  }
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 11px;
+  white-space: nowrap;
 }
 
-@keyframes border-glow {
-  0%,
-  100% {
-    background-position: 0% 50%;
-  }
-
-  50% {
-    background-position: 100% 50%;
-  }
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 0 3px var(--success-soft);
 }
 
-.auth-container {
-  .auth-header {
-    text-align: center;
-    margin-bottom: 32px;
-    position: relative;
-
-    .pixel-decoration {
-      display: flex;
-      justify-content: center;
-      gap: 20px;
-      margin-bottom: 20px;
-
-      .pixel-gem {
-        width: 8px;
-        height: 8px;
-        background: $neon-cyan;
-        animation: gem-glow 1.5s ease-in-out infinite;
-        box-shadow:
-          0 0 10px $neon-cyan,
-          0 0 20px $neon-cyan;
-
-        &:nth-child(2) {
-          animation-delay: 0.3s;
-          background: $neon-magenta;
-          box-shadow:
-            0 0 10px $neon-magenta,
-            0 0 20px $neon-magenta;
-        }
-
-        &:nth-child(3) {
-          animation-delay: 0.6s;
-        }
-      }
-    }
-
-    .header-content {
-      position: relative;
-      z-index: 1;
-      padding: 0 20px;
-
-      &::before,
-      &::after {
-        content: '══════════════';
-        display: block;
-        background: linear-gradient(
-          90deg,
-          transparent,
-          $neon-cyan,
-          $neon-magenta,
-          $neon-cyan,
-          transparent
-        );
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        font-family: monospace;
-        letter-spacing: -2px;
-        opacity: 0.8;
-      }
-
-      &::before {
-        margin-bottom: 16px;
-      }
-
-      &::after {
-        margin-top: 16px;
-      }
-    }
-
-    h2 {
-      font-size: 28px;
-      font-weight: 600;
-      margin: 0 0 8px;
-      background: linear-gradient(135deg, $neon-cyan, #fff, $neon-magenta);
-      background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      filter: drop-shadow(0 0 10px rgba($neon-cyan, 0.5));
-      font-family: 'Noto Sans JP', sans-serif;
-    }
-
-    p {
-      color: $pixel-text-muted;
-      margin: 0;
-      font-size: 14px;
-    }
-  }
-
-  .auth-form {
-    :deep(.el-input) {
-      .el-input__wrapper {
-        border-radius: 0;
-        padding: 8px 16px;
-        background: rgba(0, 0, 0, 0.4);
-        border: 1px solid rgba($neon-cyan, 0.3);
-        transition: all 0.2s;
-        backdrop-filter: blur(5px);
-
-        /* 像素角 */
-        // clip-path: polygon(
-        //   0 3px, 3px 3px, 3px 0,
-        //   calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px,
-        //   100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%,
-        //   3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px)
-        // );
-
-        box-shadow:
-          inset 0 0 10px rgba(0, 0, 0, 0.5),
-          0 0 5px rgba($neon-cyan, 0.1) !important;
-
-        &:hover {
-          border-color: rgba($neon-cyan, 0.6);
-          box-shadow:
-            inset 0 0 10px rgba(0, 0, 0, 0.5),
-            0 0 10px rgba($neon-cyan, 0.2) !important;
-        }
-
-        &.is-focus {
-          border-color: $neon-cyan;
-          box-shadow:
-            inset 0 0 10px rgba(0, 0, 0, 0.3),
-            0 0 15px rgba($neon-cyan, 0.4),
-            0 0 30px rgba($neon-cyan, 0.2) !important;
-        }
-      }
-
-      .el-input__prefix-icon {
-        font-size: 18px;
-        color: $neon-cyan;
-        filter: drop-shadow(0 0 5px $neon-cyan);
-      }
-    }
-
-    .form-footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 24px;
-
-      .free-login-toggle {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        cursor: pointer;
-        user-select: none;
-        transition: filter 0.2s ease;
-
-        &:hover {
-          filter: brightness(1.1);
-        }
-      }
-
-      .toggle-text {
-        font-size: 13px;
-        color: $pixel-text-muted;
-        letter-spacing: 0.04em;
-        text-shadow: 0 0 8px rgba($neon-cyan, 0.3);
-        transition:
-          color 0.2s,
-          text-shadow 0.2s;
-      }
-
-      .toggle-track {
-        width: 40px;
-        height: 22px;
-        background: rgba(0, 0, 0, 0.5);
-        border: 2px solid rgba($neon-cyan, 0.3);
-        position: relative;
-        transition: all 0.25s ease;
-        clip-path: polygon(
-          0 3px,
-          3px 3px,
-          3px 0,
-          calc(100% - 3px) 0,
-          calc(100% - 3px) 3px,
-          100% 3px,
-          100% calc(100% - 3px),
-          calc(100% - 3px) calc(100% - 3px),
-          calc(100% - 3px) 100%,
-          3px 100%,
-          3px calc(100% - 3px),
-          0 calc(100% - 3px)
-        );
-
-        .toggle-thumb {
-          position: absolute;
-          top: 2px;
-          left: 2px;
-          width: 14px;
-          height: 14px;
-          background: rgba($neon-cyan, 0.6);
-          transition: all 0.25s ease;
-          clip-path: polygon(
-            0 2px,
-            2px 2px,
-            2px 0,
-            calc(100% - 2px) 0,
-            calc(100% - 2px) 2px,
-            100% 2px,
-            100% calc(100% - 2px),
-            calc(100% - 2px) calc(100% - 2px),
-            calc(100% - 2px) 100%,
-            2px 100%,
-            2px calc(100% - 2px),
-            0 calc(100% - 2px)
-          );
-        }
-      }
-
-      .toggle-track.toggle-on {
-        background: rgba($neon-cyan, 0.25);
-        border-color: $neon-cyan;
-        box-shadow:
-          0 0 12px rgba($neon-cyan, 0.5),
-          0 0 24px rgba($neon-cyan, 0.2);
-
-        .toggle-thumb {
-          left: 20px;
-          background: $neon-cyan-light;
-          box-shadow: 0 0 10px $neon-cyan;
-        }
-
-        & ~ .toggle-text {
-          color: $neon-cyan-light;
-          text-shadow: 0 0 12px rgba($neon-cyan, 0.6);
-        }
-      }
-
-      .forgot-link {
-        color: $neon-magenta;
-        text-decoration: none;
-        font-size: 14px;
-        cursor: pointer;
-        transition: all 0.2s;
-
-        &:hover {
-          color: $neon-magenta-light;
-          text-shadow: 0 0 15px rgba($neon-magenta, 0.8);
-        }
-
-        &.amend {
-          margin-right: 10px;
-        }
-      }
-    }
-
-    .submit-button.pixel-submit {
-      width: 100%;
-      height: 44px;
-      border-radius: 0;
-      font-size: 16px;
-      font-weight: 500;
-      background: linear-gradient(
-        180deg,
-        rgba($neon-purple, 0.4) 0%,
-        rgba($neon-purple, 0.2) 50%,
-        rgba($neon-purple, 0.1) 100%
-      );
-      border: 2px solid $neon-purple;
-      color: #fff;
-      position: relative;
-      transition: all 0.2s;
-      backdrop-filter: blur(10px);
-
-      /* 像素角 */
-      clip-path: polygon(
-        0 4px,
-        4px 4px,
-        4px 0,
-        calc(100% - 4px) 0,
-        calc(100% - 4px) 4px,
-        100% 4px,
-        100% calc(100% - 4px),
-        calc(100% - 4px) calc(100% - 4px),
-        calc(100% - 4px) 100%,
-        4px 100%,
-        4px calc(100% - 4px),
-        0 calc(100% - 4px)
-      );
-      text-shadow: 0 0 10px $neon-purple;
-      box-shadow:
-        0 0 10px rgba($neon-purple, 0.5),
-        0 0 20px rgba($neon-purple, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
-
-      &:hover {
-        background: linear-gradient(
-          180deg,
-          rgba($neon-purple, 0.6) 0%,
-          rgba($neon-purple, 0.3) 50%,
-          rgba($neon-purple, 0.2) 100%
-        );
-
-        // border-color: lighten($neon-purple, 10%);
-        transform: translateY(-2px);
-        box-shadow:
-          0 0 15px rgba($neon-purple, 0.7),
-          0 0 30px rgba($neon-purple, 0.5),
-          0 5px 20px rgba($neon-purple, 0.4);
-      }
-
-      &:active {
-        transform: translateY(1px);
-        box-shadow:
-          0 0 10px rgba($neon-purple, 0.5),
-          0 0 20px rgba($neon-purple, 0.3);
-      }
-
-      &.mt-15 {
-        margin-top: 15px;
-      }
-    }
-
-    .switch-mode {
-      text-align: center;
-      margin-top: 16px;
-      color: $pixel-text-muted;
-      font-size: 14px;
-
-      .switch-link {
-        color: $neon-cyan;
-        text-decoration: none;
-        margin-left: 4px;
-        cursor: pointer;
-        transition: all 0.2s;
-
-        &:hover {
-          color: $neon-cyan-light;
-          text-shadow: 0 0 15px rgba($neon-cyan, 0.8);
-        }
-      }
-    }
-  }
-}
-
-@keyframes gem-glow {
-  0%,
-  100% {
-    opacity: 0.6;
-    transform: scale(1);
-  }
-
-  50% {
-    opacity: 1;
-    transform: scale(1.5);
-  }
-}
-
-:deep(.el-input__inner) {
-  color: $pixel-text;
-}
-
-/* 密码强度指示器 */
-.password-strength {
+.home-main {
+  position: relative;
+  z-index: 1;
   width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 44px 0 56px;
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  align-items: center;
+  gap: clamp(32px, 6vw, 72px);
+}
+
+.hero {
+  max-width: 560px;
+}
+
+.hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--accent-soft);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.4px;
+}
+
+.title {
+  margin: 22px 0 12px;
+  font-size: clamp(46px, 6.4vw, 74px);
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.hero-text {
+  min-height: 28px;
+  margin: 0;
+  color: var(--text-2);
+  font-size: 17px;
+  letter-spacing: 0.2px;
+}
+
+.caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.05em;
+  margin-left: 3px;
+  vertical-align: -2px;
+  background: var(--accent);
+  animation: caret-blink 1s step-end infinite;
+}
+
+@keyframes caret-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0;
+  }
+}
+
+.hero-desc {
+  max-width: 460px;
+  margin: 18px 0 30px;
+  color: var(--text-3);
+  font-size: 14.5px;
+  line-height: 1.85;
+}
+
+.hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.primary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  height: 46px;
+  padding: 0 24px;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 10px 24px var(--accent-ring);
+  transition:
+    transform 0.18s var(--ease),
+    background-color 0.18s var(--ease),
+    box-shadow 0.18s var(--ease);
+
+  i {
+    font-size: 12px;
+    transition: transform 0.18s var(--ease);
+  }
+
+  &:hover {
+    background: var(--accent-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 14px 28px var(--accent-ring);
+
+    i {
+      transform: translateX(3px);
+    }
+  }
+
+  &:active {
+    background: var(--accent-active);
+    transform: translateY(0);
+  }
+}
+
+.hero-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-3);
+  font-size: 12px;
+
+  i {
+    color: var(--success);
+  }
+}
+
+.features {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 46px;
+}
+
+.feature-card {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 4px;
-}
-
-.strength-bar-track {
-  flex: 1;
-  height: 6px;
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba($neon-cyan, 0.1);
-  overflow: hidden;
-  clip-path: polygon(
-    0 1px,
-    1px 1px,
-    1px 0,
-    calc(100% - 1px) 0,
-    calc(100% - 1px) 1px,
-    100% 1px,
-    100% calc(100% - 1px),
-    calc(100% - 1px) calc(100% - 1px),
-    calc(100% - 1px) 100%,
-    1px 100%,
-    1px calc(100% - 1px),
-    0 calc(100% - 1px)
-  );
-}
-
-.strength-bar-fill {
-  height: 100%;
+  min-width: 0;
+  padding: 13px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
   transition:
-    width 0.4s ease,
-    background 0.3s ease;
+    transform 0.18s var(--ease),
+    border-color 0.18s var(--ease),
+    box-shadow 0.18s var(--ease);
 
-  &::after {
-    content: '';
-    display: block;
-    margin: 1px 2px 0;
-    height: 2px;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), transparent);
+  &:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-sm);
   }
 }
 
-.strength-label {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 2px;
+.feature-icon {
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
-  transition: all 0.3s ease;
-  font-family: myFirstFont, 'VT323', monospace;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.feature-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.feature-title {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.feature-desc {
+  color: var(--text-3);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.hero-visual {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
+.visual-card {
+  position: relative;
+  width: min(100%, 420px);
+  padding: 13px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  transform: rotate(-1.4deg);
+  transition: transform 0.3s var(--ease);
+
+  &:hover {
+    transform: rotate(0deg);
+  }
+
+  > img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 520px;
+    object-fit: cover;
+    border-radius: 15px;
+    background: var(--surface-2);
+  }
+}
+
+.visual-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 6px 3px;
+}
+
+.meta-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.meta-copy {
+  min-width: 0;
+}
+
+.meta-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.meta-sub {
+  margin: 2px 0 0;
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.float-card {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px 10px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+
+  i {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 9px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 12px;
+  }
+
+  div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  strong {
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  span {
+    color: var(--text-3);
+    font-size: 10px;
+  }
+
+  &--top {
+    top: 48px;
+    right: -10px;
+  }
+
+  &--bottom {
+    bottom: 84px;
+    left: -18px;
+  }
+}
+
+.bottom-bar {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px 0 26px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border-top: 1px solid var(--border);
+  color: var(--text-3);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.bar-divider {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+
+.copyright {
+  margin-left: auto;
+  color: var(--text-3);
+}
+
+/* ---------- 登录 / 注册弹窗 ---------- */
+.auth-container {
+  padding: 4px 8px 8px;
+}
+
+.auth-header {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.auth-icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 14px;
+  border: 1px solid var(--accent-ring);
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 22px;
+  box-shadow:
+    0 0 0 4px var(--surface-2),
+    var(--shadow-xs);
+}
+
+.pixel-decoration {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.pixel-gem {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.3;
+
+  &:nth-child(2) {
+    opacity: 0.6;
+  }
+
+  &:nth-child(3) {
+    opacity: 1;
+  }
+}
+
+.auth-header h2 {
+  margin: 0 0 6px;
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.auth-header p {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.auth-form {
+  :deep(.el-form-item) {
+    margin-bottom: 16px;
+  }
+
+  :deep(.el-input__wrapper) {
+    min-height: 40px;
+  }
+}
+
+.form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 2px 0 20px;
+  font-size: 12px;
+}
+
+.free-login-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-3);
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-track {
+  position: relative;
+  width: 32px;
+  height: 18px;
+  flex-shrink: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface-3);
+  transition:
+    background-color 0.18s var(--ease),
+    border-color 0.18s var(--ease);
+}
+
+.toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  transition: transform 0.18s var(--ease);
+}
+
+.toggle-on {
+  background: var(--accent);
+  border-color: var(--accent);
+
+  .toggle-thumb {
+    transform: translateX(14px);
+    background: #fff;
+  }
+}
+
+.forgot-link {
+  color: var(--text-3);
+  cursor: pointer;
+  transition: color 0.15s var(--ease);
+
+  & + & {
+    margin-left: 10px;
+  }
+
+  &:hover {
+    color: var(--accent);
+  }
+}
+
+.submit-button {
+  width: 100%;
+  height: 42px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.switch-mode {
+  margin-top: 16px;
+  color: var(--text-3);
+  font-size: 12px;
+  text-align: center;
+}
+
+.switch-link {
+  color: var(--accent);
+  cursor: pointer;
+  font-weight: 500;
 }
 
 .portrait {
   display: flex;
   align-items: center;
+  justify-content: center;
+  gap: 12px;
   margin-bottom: 18px;
 }
 
 .avatar {
-  color: $pixel-text-muted;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .avatar-img {
-  width: 60px;
-  height: 60px;
-  border-radius: 0;
-  margin-left: 12px;
-  background: linear-gradient(135deg, rgba($neon-cyan, 0.2), rgba($neon-magenta, 0.2));
+  position: relative;
+  width: 62px;
+  height: 62px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--border-strong);
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text-3);
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    border-color 0.18s var(--ease),
+    background-color 0.18s var(--ease);
+
+  &:hover {
+    border-color: var(--accent);
+    background: var(--accent-softer);
+  }
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  input {
+    display: none;
+  }
+}
+
+.password-strength {
   display: flex;
   align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: 2px solid rgba($neon-cyan, 0.5);
-  backdrop-filter: blur(5px);
-
-  /* 像素角 */
-  clip-path: polygon(
-    0 4px,
-    4px 4px,
-    4px 0,
-    calc(100% - 4px) 0,
-    calc(100% - 4px) 4px,
-    100% 4px,
-    100% calc(100% - 4px),
-    calc(100% - 4px) calc(100% - 4px),
-    calc(100% - 4px) 100%,
-    4px 100%,
-    4px calc(100% - 4px),
-    0 calc(100% - 4px)
-  );
-  box-shadow:
-    0 0 10px rgba($neon-cyan, 0.3),
-    inset 0 0 20px rgba(0, 0, 0, 0.3);
-}
-
-.avatar-img:hover {
-  background: linear-gradient(135deg, rgba($neon-cyan, 0.4), rgba($neon-magenta, 0.4));
-  border-color: $neon-cyan;
-  box-shadow:
-    0 0 15px rgba($neon-cyan, 0.5),
-    0 0 30px rgba($neon-cyan, 0.3),
-    inset 0 0 20px rgba(0, 0, 0, 0.2);
-}
-
-.avatar-img input {
-  display: none;
-}
-
-.avatar-img img {
+  gap: 10px;
   width: 100%;
-  height: 100%;
-  display: block;
-  border-radius: 0;
-  image-rendering: pixelated;
+  margin-top: 6px;
 }
 
-:deep(.custom-form-item .el-form-item__content) {
-  justify-content: space-between;
+.strength-bar-track {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.strength-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  transition:
+    width 0.25s var(--ease),
+    background-color 0.25s var(--ease);
+}
+
+.strength-label {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.custom-form-item {
+  :deep(.el-form-item__content) {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: nowrap;
+  }
 }
 
 .svg-img {
+  width: 118px;
+  height: 40px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
   cursor: pointer;
-  border: 1px solid rgba($neon-cyan, 0.3);
-  background: rgba(0, 0, 0, 0.4);
-  padding: 4px;
-  backdrop-filter: blur(5px);
-  transition: all 0.2s;
+  overflow: hidden;
 
-  &:hover {
-    border-color: $neon-cyan;
-    box-shadow: 0 0 10px rgba($neon-cyan, 0.3);
+  :deep(svg) {
+    width: 100%;
+    height: 100%;
   }
 }
 
-/* 底部状态栏 — 冒险者 HUD */
-.bottom-bar {
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 8px 24px;
-  background: rgba($pixel-bg, 0.65);
-  border: 1px solid rgba($neon-cyan, 0.12);
-  backdrop-filter: blur(10px);
-  font-size: 12px;
-  color: $pixel-text-muted;
-  letter-spacing: 2px;
-  clip-path: polygon(
-    0 3px,
-    3px 3px,
-    3px 0,
-    calc(100% - 3px) 0,
-    calc(100% - 3px) 3px,
-    100% 3px,
-    100% calc(100% - 3px),
-    calc(100% - 3px) calc(100% - 3px),
-    calc(100% - 3px) 100%,
-    3px 100%,
-    3px calc(100% - 3px),
-    0 calc(100% - 3px)
-  );
+.mt-15 {
+  margin-top: 4px;
+}
 
-  .bar-item {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    color: $pixel-text;
-    font-size: 12px;
+:global(.adventurer-auth-dialog) {
+  max-width: calc(100vw - 28px);
+  overflow: hidden;
+}
+
+@media (width <= 980px) {
+  .home-main {
+    grid-template-columns: 1fr;
+    gap: 40px;
+    padding-top: 24px;
   }
 
-  .bar-icon {
-    font-size: 8px;
-    color: $neon-magenta;
-    text-shadow: 0 0 6px rgba($neon-magenta, 0.6);
+  .hero {
+    max-width: 640px;
   }
 
-  .bar-divider {
-    font-size: 6px;
-    color: rgba($neon-cyan, 0.25);
+  .hero-visual {
+    order: 2;
+    max-width: 440px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .float-card {
+    display: none;
+  }
+
+  .visual-card {
+    width: 100%;
+    transform: none;
   }
 }
-</style>
 
-<style>
-/* 弹窗遮罩层 - 深色模糊背景 */
-.el-overlay {
-  background: radial-gradient(
-    ellipse at center,
-    rgba(0, 0, 0, 0.7) 0%,
-    rgba(0, 0, 0, 0.9) 100%
-  ) !important;
-  backdrop-filter: blur(8px);
+@media (width <= 640px) {
+  .home {
+    padding: 0 18px;
+  }
+
+  .home-header {
+    height: 66px;
+  }
+
+  .status-pill {
+    display: none;
+  }
+
+  .home-main {
+    padding: 20px 0 40px;
+  }
+
+  .title {
+    font-size: 48px;
+  }
+
+  .hero-text {
+    font-size: 15px;
+  }
+
+  .features {
+    grid-template-columns: 1fr;
+    margin-top: 32px;
+  }
+
+  .feature-desc {
+    white-space: normal;
+  }
+
+  .bottom-bar {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding-bottom: 20px;
+  }
+
+  .copyright {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .svg-img {
+    width: 96px;
+  }
+
+  .form-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
 }
 
-.adventurer-auth-dialog.pixel-dialog {
-  background-color: transparent;
-}
-
-.el-dialog.is-align-center.adventurer-auth-dialog {
-  margin-top: 100px;
-}
-
-/* 登录成功通知 — 像素游戏风格 */
-.pixel-notify {
-  background: linear-gradient(
-    135deg,
-    rgba(16, 28, 46, 0.97) 0%,
-    rgba(20, 35, 55, 0.97) 100%
-  ) !important;
-  border: 2px solid #7dd8c7 !important;
-  backdrop-filter: blur(20px);
-  box-shadow:
-    0 0 15px rgba(125, 216, 199, 0.6),
-    0 0 40px rgba(125, 216, 199, 0.3),
-    0 0 80px rgba(216, 166, 87, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
-  clip-path: polygon(
-    0 8px,
-    8px 8px,
-    8px 0,
-    calc(100% - 8px) 0,
-    calc(100% - 8px) 8px,
-    100% 8px,
-    100% calc(100% - 8px),
-    calc(100% - 8px) calc(100% - 8px),
-    calc(100% - 8px) 100%,
-    8px 100%,
-    8px calc(100% - 8px),
-    0 calc(100% - 8px)
-  );
-}
-
-.pixel-notify .el-notification__title {
-  font-family: myFirstFont;
-  font-size: 20px;
-  color: #fff;
-  text-shadow:
-    0 0 10px #7dd8c7,
-    0 0 25px #7dd8c7;
-}
-
-.pixel-notify .el-notification__content {
-  color: #c9fff2;
-  font-size: 14px;
-}
-
-.pixel-notify .el-notification__icon {
-  color: #7dd8c7;
-  filter: drop-shadow(0 0 8px #7dd8c7);
+@media (prefers-reduced-motion: reduce) {
+  .caret {
+    animation: none;
+  }
 }
 </style>

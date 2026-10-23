@@ -5,6 +5,7 @@ import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 import { aicgApi } from '@/api/aicg.ts'
 import { useRoute, useRouter } from 'vue-router'
+import ThemeToggle from '@/components/ThemeToggle.vue'
 
 defineOptions({
   name: 'CustomerService'
@@ -17,9 +18,18 @@ const chatConfig = reactive({
   signature: '冒险者公会 · 向导',
   title: '冒险者公会',
   techBrand: '未来智匠',
-  themeColor: '#1d4ed8',
+  themeColor: '#2563eb',
   apiKey: '' // 存储 DeepSeek API Key
 })
+
+const colorPresets = [
+  { name: '苍蓝', value: '#2563eb' },
+  { name: '翠绿', value: '#16a34a' },
+  { name: '紫晶', value: '#9333ea' },
+  { name: '赤焰', value: '#dc2626' },
+  { name: '暗影', value: '#374151' },
+  { name: '辉金', value: '#eab308' }
+]
 
 const newMessage = ref('')
 const isTyping = ref(false)
@@ -527,295 +537,240 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex min-h-screen">
+  <div class="cs-page">
     <!-- 左侧配置区域 -->
-    <div class="w-[300px] bg-white border-r p-5 flex flex-col h-screen overflow-y-auto">
-      <div class="flex items-center justify-between mb-6">
-        <h1 class="text-xl font-bold">冒险者公会</h1>
-        <button
-          @click="goBack"
-          class="flex items-center justify-center p-2 rounded-full hover:bg-gray-100"
-          title="返回"
-        >
-          <i class="fas fa-arrow-left text-gray-600"></i>
-        </button>
-      </div>
-
-      <!-- 基础配置区 -->
-      <div class="mb-6">
-        <h2 class="text-sm font-bold mb-3">文字铭刻</h2>
-
-        <div class="mb-4">
-          <label class="block text-xs text-gray-600 mb-1">欢迎寄语:</label>
-          <input
-            v-model="chatConfig.welcomeText"
-            type="text"
-            class="w-full border rounded p-2 text-sm bg-gray-50"
-          />
+    <aside class="cs-sidebar">
+      <div class="cs-sidebar-head">
+        <div class="cs-brand">
+          <span class="cs-brand-mark"><i class="fas fa-headset"></i></span>
+          <div class="cs-brand-copy">
+            <h1>冒险者公会</h1>
+            <p>配置并预览你的智能客服</p>
+          </div>
         </div>
-
-        <div class="mb-4">
-          <label class="block text-xs text-gray-600 mb-1">署名:</label>
-          <input
-            v-model="chatConfig.signature"
-            type="text"
-            class="w-full border rounded p-2 text-sm bg-gray-50"
-          />
-        </div>
-
-        <div class="mb-4">
-          <label class="block text-xs text-gray-600 mb-1">称号:</label>
-          <input
-            v-model="chatConfig.title"
-            type="text"
-            class="w-full border rounded p-2 text-sm bg-gray-50"
-          />
-        </div>
-
-        <div class="mb-4">
-          <label class="block text-xs text-gray-600 mb-1">工坊印记:</label>
-          <input
-            v-model="chatConfig.techBrand"
-            type="text"
-            class="w-full border rounded p-2 text-sm bg-gray-50"
-          />
+        <div class="cs-head-actions">
+          <ThemeToggle />
+          <button class="cs-icon-btn" title="返回" @click="goBack">
+            <i class="fas fa-arrow-left"></i>
+          </button>
         </div>
       </div>
 
-      <!-- 颜色配置区 -->
-      <div class="mb-6">
-        <h2 class="text-sm font-bold mb-3">元素配色</h2>
+      <div class="cs-scroll">
+        <!-- 基础配置区 -->
+        <section class="cs-section">
+          <h2 class="cs-section-title">文字铭刻</h2>
 
-        <div class="grid grid-cols-3 gap-2 mb-2">
-          <div
-            class="text-center py-2 bg-blue-600 text-white text-xs rounded cursor-pointer"
-            @click="setThemeColor('#2563eb')"
-          >
-            苍蓝
-          </div>
-          <div
-            class="text-center py-2 bg-green-600 text-white text-xs rounded cursor-pointer"
-            @click="setThemeColor('#16a34a')"
-          >
-            翠绿
-          </div>
-          <div
-            class="text-center py-2 bg-purple-600 text-white text-xs rounded cursor-pointer"
-            @click="setThemeColor('#9333ea')"
-          >
-            紫晶
-          </div>
-        </div>
+          <label class="cs-field">
+            <span>欢迎寄语</span>
+            <input v-model="chatConfig.welcomeText" type="text" placeholder="输入欢迎语" />
+          </label>
 
-        <div class="grid grid-cols-3 gap-2 mb-2">
-          <div
-            class="text-center py-2 bg-red-600 text-white text-xs rounded cursor-pointer"
-            @click="setThemeColor('#dc2626')"
-          >
-            赤焰
+          <label class="cs-field">
+            <span>署名</span>
+            <input v-model="chatConfig.signature" type="text" placeholder="输入署名" />
+          </label>
+
+          <label class="cs-field">
+            <span>称号</span>
+            <input v-model="chatConfig.title" type="text" placeholder="输入客服称号" />
+          </label>
+
+          <label class="cs-field">
+            <span>工坊印记</span>
+            <input v-model="chatConfig.techBrand" type="text" placeholder="输入品牌名称" />
+          </label>
+        </section>
+
+        <!-- 颜色配置区 -->
+        <section class="cs-section">
+          <h2 class="cs-section-title">元素配色</h2>
+          <div class="cs-swatches">
+            <button
+              v-for="color in colorPresets"
+              :key="color.value"
+              class="cs-swatch"
+              :class="{ 'is-active': chatConfig.themeColor === color.value }"
+              :style="{ '--swatch': color.value }"
+              :title="color.name"
+              @click="setThemeColor(color.value)"
+            >
+              <span class="cs-swatch-dot"></span>
+              <span class="cs-swatch-name">{{ color.name }}</span>
+            </button>
           </div>
-          <div
-            class="text-center py-2 bg-gray-700 text-white text-xs rounded cursor-pointer"
-            @click="setThemeColor('#374151')"
-          >
-            暗影
+        </section>
+
+        <!-- 测试功能区 -->
+        <section class="cs-section">
+          <h2 class="cs-section-title">试炼功能</h2>
+          <div class="cs-tools">
+            <button class="btn btn-secondary" @click="startTestConversation">
+              <i class="fas fa-flask"></i>
+              试炼对话
+            </button>
+            <button class="btn btn-secondary" @click="showApiConfig">
+              <i class="fas fa-key"></i>
+              法术配置
+            </button>
           </div>
-          <div
-            class="text-center py-2 bg-yellow-500 text-white text-xs rounded cursor-pointer"
-            @click="setThemeColor('#eab308')"
-          >
-            辉金
-          </div>
-        </div>
+        </section>
       </div>
 
-      <!-- 测试功能区 -->
-      <div class="mb-6">
-        <h2 class="text-sm font-bold mb-3">试炼功能</h2>
-        <button
-          @click="startTestConversation"
-          class="w-full bg-gray-100 hover:bg-gray-200 py-2 rounded text-sm mb-2"
-        >
-          试炼对话
-        </button>
-        <button
-          @click="showApiConfig"
-          class="w-full bg-gray-100 hover:bg-gray-200 py-2 rounded text-sm"
-        >
-          法术配置
-        </button>
-      </div>
-
-      <!-- 创建按钮 -->
-      <div class="mt-auto pt-6">
-        <button
-          @click="saveConfig"
-          class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded"
-        >
+      <div class="cs-sidebar-footer">
+        <button class="btn btn-primary btn-block" @click="saveConfig">
+          <i class="fas fa-check"></i>
           铭刻配置
         </button>
-      </div>
-
-      <!-- 分享&发布 -->
-      <div class="mt-6">
-        <button
-          @click="publishDialogVisible = true"
-          class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded"
-        >
+        <button class="btn btn-secondary btn-block" @click="publishDialogVisible = true">
+          <i class="fas fa-code"></i>
           召唤符石
         </button>
       </div>
-    </div>
+    </aside>
 
     <!-- 右侧对话区域 -->
-    <div class="flex-1 bg-gray-100 p-6 h-screen flex flex-col items-center justify-center">
-      <div class="flex justify-between items-center mb-6 w-full max-w-[375px]">
-        <h2 class="text-xl font-semibold">预览视界</h2>
-        <div class="flex gap-2">
-          <button
-            @click="resetConversation"
-            class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded text-sm"
-          >
+    <main class="cs-preview">
+      <div class="cs-preview-head">
+        <div>
+          <h2>预览视界</h2>
+          <p>调整左侧配置，客服效果会实时更新</p>
+        </div>
+        <div class="cs-preview-actions">
+          <button class="btn btn-secondary" @click="resetConversation">
+            <i class="fas fa-rotate-left"></i>
             重置冒险
           </button>
-          <button
-            @click="exportConfig"
-            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm"
-          >
+          <button class="btn btn-primary" @click="exportConfig">
+            <i class="fas fa-download"></i>
             导出铭文
           </button>
         </div>
       </div>
 
       <!-- 聊天窗口 -->
-      <div class="window-wrapper flex flex-col bg-white shadow overflow-hidden h-[667px] w-[375px]">
-        <!-- 聊天头部 -->
-        <div
-          class="h-12 flex items-center justify-between px-4"
-          :style="`background-color: ${chatConfig.themeColor || '#4CAF50'}`"
-        >
-          <div class="flex items-center">
-            <i class="fas fa-robot text-white mr-2"></i>
-            <span class="text-white text-sm">{{ chatConfig.title }}</span>
-          </div>
-          <button class="text-white hover:opacity-80 cursor-pointer">
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
-
-        <!-- 聊天消息区域 -->
-        <div ref="messagesContainer" class="flex-1 overflow-y-auto p-4 bg-gray-50">
-          <div v-for="(message, index) in messages" :key="index" class="mb-4">
-            <!-- AI消息 -->
-            <div v-if="message.type === 'ai' && message.content" class="overflow-hidden">
-              <div
-                class="text-sm text-black p-3 bg-white rounded shadow-sm inline-block max-w-[280px] float-left markdown-content"
-                v-html="renderMarkdown(message.content)"
-              ></div>
-              <div class="clear-both"></div>
-              <div v-if="chatConfig.signature" class="text-[11px] text-gray-400 mt-1 ml-1">
-                {{ chatConfig.signature }}
-              </div>
-            </div>
-
-            <!-- 用户消息 -->
-            <div v-else-if="message.content" class="overflow-hidden text-right">
-              <div
-                class="text-sm text-white p-3 rounded inline-block max-w-[280px] float-right"
-                :style="`background-color: ${chatConfig.themeColor || '#4CAF50'}`"
-              >
-                {{ message.content }}
-              </div>
-              <div class="clear-both"></div>
-            </div>
-          </div>
-
-          <!-- 加载中指示器 -->
-          <div
-            v-if="
-              isTyping &&
-              (!messages.length ||
-                messages[messages.length - 1].type !== 'ai' ||
-                messages[messages.length - 1].content === '')
-            "
-            class="mb-4"
+      <div class="phone">
+        <div class="chat-window">
+          <!-- 聊天头部 -->
+          <header
+            class="chat-header"
+            :style="{ backgroundColor: chatConfig.themeColor || '#2563eb' }"
           >
-            <div class="text-sm p-2 bg-white rounded shadow-sm inline-block">
-              <div class="flex space-x-1">
-                <div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div>
+            <div class="chat-head-left">
+              <span class="chat-avatar"><i class="fas fa-robot"></i></span>
+              <span class="chat-title">{{ chatConfig.title }}</span>
+            </div>
+            <i class="fas fa-xmark chat-close"></i>
+          </header>
+
+          <!-- 聊天消息区域 -->
+          <div ref="messagesContainer" class="chat-messages">
+            <div v-for="(message, index) in messages" :key="index" class="chat-row">
+              <!-- AI消息 -->
+              <div v-if="message.type === 'ai' && message.content" class="chat-ai">
                 <div
-                  class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
-                  style="animation-delay: 0.2s"
+                  class="chat-bubble chat-bubble--ai markdown-content"
+                  v-html="renderMarkdown(message.content)"
                 ></div>
+                <div v-if="chatConfig.signature" class="chat-signature">
+                  {{ chatConfig.signature }}
+                </div>
+              </div>
+
+              <!-- 用户消息 -->
+              <div v-else-if="message.content" class="chat-user">
                 <div
-                  class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
-                  style="animation-delay: 0.4s"
-                ></div>
+                  class="chat-bubble chat-bubble--user"
+                  :style="{ backgroundColor: chatConfig.themeColor || '#2563eb' }"
+                >
+                  {{ message.content }}
+                </div>
               </div>
             </div>
-            <div class="clear-both"></div>
-            <div v-if="chatConfig.signature" class="text-[11px] text-gray-400 mt-1 ml-1">
-              {{ chatConfig.signature }}
+
+            <!-- 加载中指示器 -->
+            <div
+              v-if="
+                isTyping &&
+                (!messages.length ||
+                  messages[messages.length - 1].type !== 'ai' ||
+                  messages[messages.length - 1].content === '')
+              "
+              class="chat-row"
+            >
+              <div class="chat-ai">
+                <div class="chat-bubble chat-bubble--ai chat-typing">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+                <div v-if="chatConfig.signature" class="chat-signature">
+                  {{ chatConfig.signature }}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- 输入区域 -->
-        <div class="border-t bg-white">
-          <div class="relative">
-            <textarea
-              v-model="newMessage"
-              @keydown="handleKeydown"
-              placeholder="向冒险者公会提问..."
-              class="w-[calc(100%-50px)] text-sm border-none px-4 py-3 focus:outline-none min-h-[50px] max-h-[150px] resize-none"
-              rows="1"
-              @input="adjustTextareaHeight"
-              ref="textareaDialogue"
-            ></textarea>
-            <!-- 暂停按钮 (isTyping时显示) -->
-            <button
-              v-if="isTyping"
-              @click="stopTyping"
-              class="absolute right-3 top-1/2 transform -translate-y-1/2 rounded-full p-2 w-10 h-10 flex items-center justify-center"
-              :style="`background-color: ${chatConfig.themeColor || '#4CAF50'}`"
-            >
-              <i class="fas fa-pause text-white text-sm"></i>
-            </button>
-            <!-- 发送按钮 (非isTyping时显示) -->
-            <button
-              v-else
-              @click="sendMessage"
-              class="absolute right-3 top-1/2 transform -translate-y-1/2 rounded-full p-2 w-10 h-10 flex items-center justify-center"
-              :style="`background-color: ${chatConfig.themeColor || '#4CAF50'}`"
-            >
-              <i class="fas fa-paper-plane text-white text-sm"></i>
-            </button>
-          </div>
-          <div class="px-3 py-2 text-center text-[10px] text-gray-400 border-t">
-            {{ chatConfig.techBrand }}
+          <!-- 输入区域 -->
+          <div class="chat-input-area">
+            <div class="chat-input-row">
+              <textarea
+                v-model="newMessage"
+                @keydown="handleKeydown"
+                placeholder="向冒险者公会提问..."
+                class="chat-textarea"
+                rows="1"
+                @input="adjustTextareaHeight"
+                ref="textareaDialogue"
+              ></textarea>
+              <button
+                v-if="isTyping"
+                @click="stopTyping"
+                class="chat-send"
+                :style="{ backgroundColor: chatConfig.themeColor || '#2563eb' }"
+                title="停止回复"
+              >
+                <i class="fas fa-pause"></i>
+              </button>
+              <button
+                v-else
+                @click="sendMessage"
+                class="chat-send"
+                :style="{ backgroundColor: chatConfig.themeColor || '#2563eb' }"
+                title="发送"
+              >
+                <i class="fas fa-paper-plane"></i>
+              </button>
+            </div>
+            <div class="chat-brand">{{ chatConfig.techBrand }}</div>
           </div>
         </div>
       </div>
-    </div>
+    </main>
   </div>
 
   <!-- 发布弹窗 -->
-  <el-dialog v-model="publishDialogVisible" title="召唤符石" width="550" class="pixel-dialog">
-    <div class="acquire">
-      <h1 class="acquire-title">第一章：获取符石</h1>
-      <p class="acquire-text">此符石适用于 PC 端页面，请将符石铭刻到需要使用对话的每个网页中</p>
-      <div class="acquire-code mt-2 mb-2" v-html="rawHtml"></div>
+  <el-dialog
+    v-model="publishDialogVisible"
+    title="召唤符石"
+    width="560px"
+    class="app-dialog cs-dialog"
+  >
+    <div class="cs-dialog-block">
+      <h3>第一章：获取符石</h3>
+      <p class="cs-dialog-text">此符石适用于 PC 端页面，请将符石铭刻到需要使用对话的每个网页中。</p>
+      <div class="cs-code" v-html="rawHtml"></div>
+      <button class="btn btn-primary cs-copy-btn" @click="copyCode">
+        <i class="fas fa-copy"></i>
+        复制代码
+      </button>
     </div>
-    <div
-      @click="copyCode"
-      class="w-[70px] px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm text-center code-copy"
-    >
-      复制
-    </div>
-    <div class="acquire mt-5">
-      <h1 class="acquire-title">第二章：符石镶嵌</h1>
-      <p>1、请将符石添加到网页的 &lt;head&gt; 标签内</p>
-      <p>2、切记勿自行修改符石铭文</p>
+    <div class="cs-dialog-block">
+      <h3>第二章：符石镶嵌</h3>
+      <ol class="cs-steps">
+        <li>请将符石添加到网页的 <code>&lt;head&gt;</code> 标签内</li>
+        <li>切记勿自行修改符石铭文</li>
+      </ol>
     </div>
   </el-dialog>
 
@@ -823,14 +778,14 @@ onUnmounted(() => {
   <el-dialog
     v-model="apiDialogVisible"
     title="DeepSeek 法术配置"
-    width="500px"
+    width="520px"
     destroy-on-close
-    class="pixel-dialog"
+    class="app-dialog cs-dialog"
   >
-    <el-form label-width="120px" label-position="left">
+    <el-form label-width="110px" label-position="left">
       <el-form-item label="法术密钥">
         <el-input v-model="apiConfig.apiKey" placeholder="请输入 DeepSeek 法术密钥" show-password />
-        <div class="text-xs text-gray-500 mt-1">可在 DeepSeek 魔法塔获取法术密钥</div>
+        <div class="cs-hint">可在 DeepSeek 魔法塔获取法术密钥</div>
       </el-form-item>
 
       <el-form-item label="法术模型">
@@ -843,7 +798,7 @@ onUnmounted(() => {
 
       <el-form-item label="火焰温度">
         <el-slider v-model="apiConfig.temperature" :min="0" :max="1" :step="0.1" class="w-full" />
-        <div class="text-xs text-gray-500 mt-1">低温使回答更确定，高温使回答更富有变化</div>
+        <div class="cs-hint">低温使回答更确定，高温使回答更富有变化</div>
       </el-form-item>
 
       <el-form-item label="最大卷轴长度">
@@ -854,798 +809,846 @@ onUnmounted(() => {
           :step="100"
           class="w-full"
         />
-        <div class="text-xs text-gray-500 mt-1">控制回复的最大长度，卷轴越长消耗的法力越多</div>
+        <div class="cs-hint">控制回复的最大长度，卷轴越长消耗的法力越多</div>
       </el-form-item>
 
       <el-form-item label="智慧广度">
         <el-slider v-model="apiConfig.topP" :min="0" :max="1" :step="0.1" class="w-full" />
-        <div class="text-xs text-gray-500 mt-1">控制词汇的多样性，值越高越博学</div>
+        <div class="cs-hint">控制词汇的多样性，值越高越博学</div>
       </el-form-item>
 
       <el-form-item label="逐字显现">
         <el-switch v-model="apiConfig.stream" />
-        <div class="text-xs text-gray-500 mt-1">开启后回答将如魔法卷轴般逐字展开</div>
+        <div class="cs-hint">开启后回答将如魔法卷轴般逐字展开</div>
       </el-form-item>
     </el-form>
 
     <template #footer>
-      <div class="flex justify-end gap-2">
-        <el-button @click="apiDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveApiConfig">铭刻</el-button>
+      <div class="cs-dialog-footer">
+        <button class="btn btn-secondary" @click="apiDialogVisible = false">取消</button>
+        <button class="btn btn-primary" @click="saveApiConfig">铭刻</button>
       </div>
     </template>
   </el-dialog>
 </template>
 
 <style>
-/* 全局样式，不受scoped限制 */
-button,
-[type='button'],
-[type='reset'],
-[type='submit'],
-.cursor-pointer,
-[class*='hover'],
-a,
-.text-center.py-2,
-input[type='radio'],
-input[type='checkbox'],
-select,
-.clickable {
+/* ---------- 通用按钮 ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
   cursor: pointer;
+  transition:
+    background-color 0.16s var(--ease),
+    border-color 0.16s var(--ease),
+    color 0.16s var(--ease),
+    box-shadow 0.16s var(--ease);
+
+  i {
+    font-size: 12px;
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--surface-hover);
+    border-color: var(--border-strong);
+  }
+
+  &:active:not(:disabled) {
+    background: var(--surface-3);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+.btn-primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 4px 12px var(--accent-ring);
+
+  &:hover:not(:disabled) {
+    border-color: var(--accent-hover);
+    background: var(--accent-hover);
+  }
+
+  &:active:not(:disabled) {
+    border-color: var(--accent-active);
+    background: var(--accent-active);
+  }
+}
+
+.btn-secondary {
+  background: var(--surface-2);
+  color: var(--text-2);
+
+  &:hover:not(:disabled) {
+    background: var(--surface-3);
+    color: var(--text);
+  }
+}
+
+.btn-block {
+  width: 100%;
+}
+
+/* ---------- 弹窗（Teleport 到 body，使用全局样式） ---------- */
+.cs-dialog {
+  max-width: calc(100vw - 32px);
+}
+
+.cs-dialog .el-dialog__body {
+  padding-top: 16px;
+}
+
+.cs-dialog-block + .cs-dialog-block {
+  margin-top: 22px;
+}
+
+.cs-dialog-block h3 {
+  margin: 0 0 6px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.cs-dialog-text {
+  margin: 0 0 12px;
+  color: var(--text-3);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.cs-code {
+  padding: 14px;
+  border-radius: 10px;
+  background: #1b1d23;
+  color: #e6e8ee;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-x: auto;
+
+  pre,
+  code {
+    margin: 0;
+    padding: 0;
+    background: none;
+    color: inherit;
+    font-family: inherit;
+  }
+}
+
+.cs-copy-btn {
+  margin-top: 10px;
+}
+
+.cs-steps {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 2;
+  list-style: decimal;
+}
+
+.cs-steps code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--surface-3);
+  color: var(--accent-active);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.cs-hint {
+  width: 100%;
+  margin-top: 4px;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.cs-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 </style>
 
 <style lang="scss" scoped>
-/* —— 精致奇幻像素游戏风格配色 —— */
-$neon-cyan: #7dd8c7;
-$neon-cyan-light: #c9fff2;
-$neon-magenta: #d8a657;
-$neon-magenta-light: #ffe0a0;
-$neon-purple: #6d7fb6;
-$neon-purple-dark: #37446f;
-$pixel-bg-dark: #07111f;
-$pixel-bg: #101c2e;
-$pixel-dialog-bg: rgba(13, 22, 36, 0.96);
-$pixel-text: #f7ead0;
-$pixel-text-muted: #b6a989;
-$pixel-border: #31415b;
-
-/* ===== 页面背景 ===== */
-.flex.min-h-screen {
-  color: $pixel-text;
-  background:
-    radial-gradient(ellipse at 20% 80%, rgba($neon-magenta, 0.12) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 20%, rgba($neon-cyan, 0.12) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 50%, rgba($neon-purple, 0.08) 0%, transparent 70%),
-    linear-gradient(180deg, #0a0a12 0%, #12121f 50%, #0a0a12 100%);
+.cs-page {
+  display: flex;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
 }
 
-/* ===== 左侧配置面板 ===== */
-.bg-white.border-r {
-  background: $pixel-dialog-bg;
-  backdrop-filter: blur(20px);
-  border-right: 2px solid $pixel-border !important;
-  box-shadow: 4px 0 30px rgba(0, 0, 0, 0.4);
+/* ---------- 左侧配置栏 ---------- */
+.cs-sidebar {
+  width: 320px;
+  height: 100vh;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
 }
 
-.bg-white.border-r h1,
-.bg-white.border-r h2 {
-  color: $pixel-text;
+.cs-sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 20px 20px 16px;
 }
 
-.bg-white.border-r h1 {
-  font-family: myFirstFont;
-  text-shadow: 0 0 10px $neon-cyan;
+.cs-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 
-/* 返回按钮 */
-.p-2.rounded-full {
-  border: 2px solid rgba($neon-cyan, 0.3);
-  color: $pixel-text-muted;
-  background: rgba($neon-cyan, 0.08);
-  transition: all 0.15s ease;
+.cs-brand-mark {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 15px;
+}
+
+.cs-brand-copy {
+  min-width: 0;
+
+  h1 {
+    margin: 0;
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  p {
+    margin: 2px 0 0;
+    color: var(--text-3);
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.cs-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.cs-icon-btn {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background-color 0.16s var(--ease),
+    border-color 0.16s var(--ease),
+    color 0.16s var(--ease);
 
   &:hover {
-    background: rgba($neon-cyan, 0.2);
-    border-color: $neon-cyan;
-    color: $neon-cyan-light;
-    box-shadow: 0 0 10px rgba($neon-cyan, 0.2);
+    background: var(--surface-hover);
+    border-color: var(--border-strong);
+    color: var(--text);
   }
 }
 
-/* 文字配置标签 */
-.text-xs.text-gray-600 {
-  color: $pixel-text-muted;
+.cs-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 20px 16px;
 }
 
-/* 文字配置输入框 */
-.bg-white.border-r input[type='text'],
-.bg-white.border-r textarea {
-  background: rgba(0, 0, 0, 0.4);
-  border: 2px solid rgba($neon-cyan, 0.3) !important;
-  color: $pixel-text;
-  outline: none;
-  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.3);
-  clip-path: polygon(
-    0 3px,
-    3px 3px,
-    3px 0,
-    calc(100% - 3px) 0,
-    calc(100% - 3px) 3px,
-    100% 3px,
-    100% calc(100% - 3px),
-    calc(100% - 3px) calc(100% - 3px),
-    calc(100% - 3px) 100%,
-    3px 100%,
-    3px calc(100% - 3px),
-    0 calc(100% - 3px)
-  );
+.cs-section {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
 
-  &:focus {
-    border-color: $neon-cyan !important;
-    box-shadow:
-      inset 2px 2px 0 rgba(0, 0, 0, 0.3),
-      0 0 15px rgba($neon-cyan, 0.3);
+  &:last-child {
+    border-bottom: none;
   }
 }
 
-/* 颜色预设按钮 */
-.bg-blue-600,
-.bg-green-600,
-.bg-purple-600,
-.bg-red-600,
-.bg-gray-700,
-.bg-yellow-500 {
-  border: 2px solid $pixel-border;
+.cs-section-title {
+  margin: 0 0 12px;
+  color: var(--text-3);
+  font-size: 11px;
   font-weight: 600;
-  transition: all 0.1s ease;
-  clip-path: polygon(
-    0 3px,
-    3px 3px,
-    3px 0,
-    calc(100% - 3px) 0,
-    calc(100% - 3px) 3px,
-    100% 3px,
-    100% calc(100% - 3px),
-    calc(100% - 3px) calc(100% - 3px),
-    calc(100% - 3px) 100%,
-    3px 100%,
-    3px calc(100% - 3px),
-    0 calc(100% - 3px)
-  );
+  letter-spacing: 0.6px;
+}
 
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
-    filter: brightness(1.1);
+.cs-field {
+  display: block;
+  margin-bottom: 12px;
+
+  &:last-child {
+    margin-bottom: 0;
   }
 
-  &:active {
-    transform: translate(1px, 2px);
-    filter: brightness(0.9);
+  > span {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--text-2);
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  input {
+    width: 100%;
+    height: 38px;
+    padding: 0 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-2);
+    color: var(--text);
+    font-size: 13px;
+    outline: none;
+    box-sizing: border-box;
+    transition:
+      background-color 0.16s var(--ease),
+      border-color 0.16s var(--ease),
+      box-shadow 0.16s var(--ease);
+
+    &::placeholder {
+      color: var(--text-3);
+    }
+
+    &:focus {
+      background: var(--surface);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-ring);
+    }
   }
 }
 
-/* 测试按钮 */
-button.bg-gray-100 {
-  background: rgba($neon-cyan, 0.1);
-  border: 2px solid rgba($neon-cyan, 0.3);
-  color: $pixel-text;
-  font-weight: 600;
-  backdrop-filter: blur(10px);
-  clip-path: polygon(
-    0 3px,
-    3px 3px,
-    3px 0,
-    calc(100% - 3px) 0,
-    calc(100% - 3px) 3px,
-    100% 3px,
-    100% calc(100% - 3px),
-    calc(100% - 3px) calc(100% - 3px),
-    calc(100% - 3px) 100%,
-    3px 100%,
-    3px calc(100% - 3px),
-    0 calc(100% - 3px)
-  );
-  transition: all 0.15s ease;
+.cs-swatches {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.cs-swatch {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    background-color 0.16s var(--ease),
+    border-color 0.16s var(--ease),
+    color 0.16s var(--ease);
 
   &:hover {
-    background: rgba($neon-cyan, 0.2);
-    border-color: $neon-cyan;
-    box-shadow: 0 0 15px rgba($neon-cyan, 0.3);
-    transform: translateY(-2px);
+    background: var(--surface-3);
+    border-color: var(--border-strong);
   }
 }
 
-/* 保存 / 一键嵌入 按钮 */
-button.bg-blue-600 {
-  background: $neon-purple-dark;
-  border: 2px solid $neon-purple;
+.cs-swatch-dot {
+  width: 11px;
+  height: 11px;
+  flex-shrink: 0;
+  border-radius: 3px;
+  background: var(--swatch);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+
+.cs-swatch-name {
+  white-space: nowrap;
+}
+
+.cs-swatch.is-active {
+  border-color: var(--swatch);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.cs-tools {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+
+  .btn {
+    height: 34px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+}
+
+.cs-sidebar-footer {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 20px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+
+  .btn {
+    height: 40px;
+  }
+}
+
+/* ---------- 右侧预览区 ---------- */
+.cs-preview {
+  flex: 1;
+  min-width: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 32px 40px;
+  overflow-y: auto;
+  background: var(--bg-subtle);
+}
+
+.cs-preview-head {
+  width: min(100%, 720px);
+  margin: 0 auto 24px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+
+  h2 {
+    margin: 0;
+    color: var(--text);
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  p {
+    margin: 4px 0 0;
+    color: var(--text-3);
+    font-size: 12px;
+  }
+}
+
+.cs-preview-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+
+  .btn {
+    height: 34px;
+    font-size: 12px;
+  }
+}
+
+.phone {
+  width: 375px;
+  max-width: 100%;
+  height: 667px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 26px;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.chat-window {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-2);
+}
+
+.chat-header {
+  height: 56px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
   color: #fff;
-  font-weight: 600;
-  text-shadow: 0 0 10px $neon-purple;
-  box-shadow:
-    0 0 10px rgba($neon-purple, 0.5),
-    0 0 20px rgba($neon-purple, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
-  clip-path: polygon(
-    0 4px,
-    4px 4px,
-    4px 0,
-    calc(100% - 4px) 0,
-    calc(100% - 4px) 4px,
-    100% 4px,
-    100% calc(100% - 4px),
-    calc(100% - 4px) calc(100% - 4px),
-    calc(100% - 4px) 100%,
-    4px 100%,
-    4px calc(100% - 4px),
-    0 calc(100% - 4px)
-  );
-  transition: all 0.15s ease;
-
-  &:hover {
-    background: #47537b;
-    box-shadow:
-      0 0 15px rgba($neon-purple, 0.7),
-      0 0 30px rgba($neon-purple, 0.5),
-      0 5px 20px rgba($neon-purple, 0.4);
-    transform: translateY(-2px);
-  }
-
-  &:active {
-    transform: translate(2px, 3px);
-    filter: brightness(0.9);
-  }
 }
 
-/* ===== 右侧预览区 ===== */
-.bg-gray-100.flex-1 {
-  background:
-    radial-gradient(ellipse at 70% 30%, rgba($neon-cyan, 0.08) 0%, transparent 60%),
-    rgba($pixel-bg-dark, 0.5);
+.chat-head-left {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
 }
 
-.bg-gray-100.flex-1 h2 {
-  color: $pixel-text;
-  text-shadow: 0 0 8px rgba($neon-cyan, 0.3);
+.chat-avatar {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-size: 12px;
 }
 
-/* 重置对话按钮 */
-button.bg-gray-200 {
-  background: rgba($neon-cyan, 0.1);
-  border: 2px solid rgba($neon-cyan, 0.3);
-  color: $pixel-text;
-  font-weight: 600;
-  clip-path: polygon(
-    0 3px,
-    3px 3px,
-    3px 0,
-    calc(100% - 3px) 0,
-    calc(100% - 3px) 3px,
-    100% 3px,
-    100% calc(100% - 3px),
-    calc(100% - 3px) calc(100% - 3px),
-    calc(100% - 3px) 100%,
-    3px 100%,
-    3px calc(100% - 3px),
-    0 calc(100% - 3px)
-  );
-  transition: all 0.15s ease;
+.chat-title {
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
-  &:hover {
-    background: rgba($neon-cyan, 0.2);
-    border-color: $neon-cyan;
-    box-shadow: 0 0 15px rgba($neon-cyan, 0.3);
+.chat-close {
+  font-size: 14px;
+  opacity: 0.75;
+  cursor: pointer;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  background: var(--surface-2);
+}
+
+.chat-row {
+  margin-bottom: 14px;
+
+  &:last-child {
+    margin-bottom: 0;
   }
 }
 
-/* "导出配置"、"复制代码" 按钮 */
-.px-4.py-2.bg-blue-600 {
-  background: $neon-purple-dark;
-  border: 2px solid $neon-purple;
-  font-weight: 600;
-  text-shadow: 0 0 10px $neon-purple;
-  box-shadow:
-    0 0 10px rgba($neon-purple, 0.5),
-    0 0 20px rgba($neon-purple, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15);
-  clip-path: polygon(
-    0 3px,
-    3px 3px,
-    3px 0,
-    calc(100% - 3px) 0,
-    calc(100% - 3px) 3px,
-    100% 3px,
-    100% calc(100% - 3px),
-    calc(100% - 3px) calc(100% - 3px),
-    calc(100% - 3px) 100%,
-    3px 100%,
-    3px calc(100% - 3px),
-    0 calc(100% - 3px)
-  );
-  transition: all 0.15s ease;
+.chat-ai {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
 
-  &:hover {
-    background: #47537b;
-    box-shadow:
-      0 0 15px rgba($neon-purple, 0.7),
-      0 0 30px rgba($neon-purple, 0.5);
-    transform: translateY(-2px);
+.chat-user {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.chat-bubble {
+  max-width: 84%;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.65;
+  overflow-wrap: break-word;
+  box-sizing: border-box;
+}
+
+.chat-bubble--ai {
+  border: 1px solid var(--border);
+  border-radius: 14px 14px 14px 4px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-xs);
+}
+
+.chat-bubble--user {
+  width: fit-content;
+  border-radius: 14px 14px 4px;
+  color: #fff;
+  white-space: pre-wrap;
+}
+
+.chat-signature {
+  margin-top: 5px;
+  color: var(--text-3);
+  font-size: 10.5px;
+}
+
+.chat-typing {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 14px;
+
+  span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-3);
+    animation: chat-bounce 1.2s infinite ease-in-out;
+  }
+
+  span:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+
+  span:nth-child(3) {
+    animation-delay: 0.3s;
   }
 }
 
-/* ===== 聊天窗口 ===== */
-.window-wrapper {
-  background: $pixel-dialog-bg;
-  border: 2px solid $pixel-border;
-  backdrop-filter: blur(20px);
-  box-shadow:
-    0 0 30px rgba($neon-cyan, 0.2),
-    0 0 60px rgba($neon-magenta, 0.15),
-    0 25px 50px rgba(0, 0, 0, 0.5);
-  clip-path: polygon(
-    0 8px,
-    8px 8px,
-    8px 0,
-    calc(100% - 8px) 0,
-    calc(100% - 8px) 8px,
-    100% 8px,
-    100% calc(100% - 8px),
-    calc(100% - 8px) calc(100% - 8px),
-    calc(100% - 8px) 100%,
-    8px 100%,
-    8px calc(100% - 8px),
-    0 calc(100% - 8px)
-  );
+@keyframes chat-bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
 }
 
-/* 聊天消息区背景 */
-.window-wrapper .bg-gray-50 {
-  background:
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      rgba($neon-cyan, 0.015) 2px,
-      rgba($neon-cyan, 0.015) 4px
-    ),
-    rgba($pixel-bg, 0.6);
+.chat-input-area {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
 }
 
-/* AI 消息气泡 */
-.window-wrapper .bg-white.rounded.shadow-sm {
-  background: linear-gradient(180deg, rgba($neon-cyan, 0.15) 0%, rgba($neon-cyan, 0.08) 100%);
-  color: $pixel-text;
-  border: 1px solid rgba($neon-cyan, 0.25);
-  box-shadow:
-    0 0 10px rgba($neon-cyan, 0.1),
-    inset 1px 1px 0 rgba(255, 255, 255, 0.03);
+.chat-input-row {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
 }
 
-/* AI 消息签名 */
-.text-gray-400.mt-1 {
-  color: $pixel-text-muted;
-}
-
-/* 加载动画圆点 */
-.window-wrapper .bg-gray-400.rounded-full {
-  background: $neon-cyan;
-  box-shadow: 0 0 8px $neon-cyan;
-}
-
-/* 输入区域 */
-.window-wrapper .border-t.bg-white {
-  background: rgba($pixel-bg, 0.9);
-  border-top: 2px solid rgba($neon-cyan, 0.15);
-}
-
-/* 输入框 */
-.window-wrapper textarea {
+.chat-textarea {
+  width: 100%;
+  min-height: 52px;
+  max-height: 150px;
+  padding: 14px 58px 14px 16px;
+  border: none;
   background: transparent;
-  color: $pixel-text;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+  outline: none;
+  resize: none;
+  box-sizing: border-box;
 
   &::placeholder {
-    color: $pixel-text-muted;
+    color: var(--text-3);
   }
 }
 
-/* 底部品牌文字 */
-.window-wrapper .text-\[10px\].text-gray-400 {
-  color: $pixel-text-muted;
-  border-top-color: rgba($neon-cyan, 0.12);
-}
-
-/*
- * ===== 弹窗全局样式 =====
- * 通过 .pixel-dialog 钩子限定范围，只影响 ChatWidget 的弹窗。
- * 必须用 :global() —— Element Plus 将弹窗 Teleport 到 <body>。
- */
-:global(.pixel-dialog) {
-  background: $pixel-dialog-bg !important;
-  border: 2px solid $pixel-border;
-  backdrop-filter: blur(20px);
-  box-shadow:
-    0 0 30px rgba($neon-cyan, 0.3),
-    0 0 60px rgba($neon-magenta, 0.2),
-    0 25px 50px rgba(0, 0, 0, 0.5);
-  clip-path: polygon(
-    0 8px,
-    8px 8px,
-    8px 0,
-    calc(100% - 8px) 0,
-    calc(100% - 8px) 8px,
-    100% 8px,
-    100% calc(100% - 8px),
-    calc(100% - 8px) calc(100% - 8px),
-    calc(100% - 8px) 100%,
-    8px 100%,
-    8px calc(100% - 8px),
-    0 calc(100% - 8px)
-  );
-}
-
-:global(.pixel-dialog .el-dialog__title) {
-  font-family: myFirstFont;
-  color: $pixel-text !important;
-  text-shadow: 0 0 10px $neon-cyan;
-}
-
-:global(.pixel-dialog .el-dialog__body) {
-  color: $pixel-text;
-}
-
-:global(.pixel-dialog .el-form-item__label) {
-  color: $pixel-text-muted;
-}
-
-:global(.pixel-dialog .el-input__wrapper) {
-  background: rgba(0, 0, 0, 0.4);
-  border: 2px solid rgba($neon-cyan, 0.3);
-  color: $pixel-text;
-  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.3);
-  clip-path: polygon(
-    0 3px,
-    3px 3px,
-    3px 0,
-    calc(100% - 3px) 0,
-    calc(100% - 3px) 3px,
-    100% 3px,
-    100% calc(100% - 3px),
-    calc(100% - 3px) calc(100% - 3px),
-    calc(100% - 3px) 100%,
-    3px 100%,
-    3px calc(100% - 3px),
-    0 calc(100% - 3px)
-  );
+.chat-send {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+  transition:
+    transform 0.15s var(--ease),
+    filter 0.15s var(--ease);
 
   &:hover {
-    border-color: $neon-cyan;
+    filter: brightness(1.07);
+    transform: translateY(-1px);
   }
-}
-
-:global(.pixel-dialog .el-input__inner) {
-  color: $pixel-text;
-}
-
-:global(.pixel-dialog .el-button) {
-  font-weight: 600;
-  clip-path: polygon(
-    0 3px,
-    3px 3px,
-    3px 0,
-    calc(100% - 3px) 0,
-    calc(100% - 3px) 3px,
-    100% 3px,
-    100% calc(100% - 3px),
-    calc(100% - 3px) calc(100% - 3px),
-    calc(100% - 3px) 100%,
-    3px 100%,
-    3px calc(100% - 3px),
-    0 calc(100% - 3px)
-  );
-  transition: all 0.15s ease;
-}
-
-:global(.pixel-dialog .el-button--primary) {
-  background: $neon-purple-dark;
-  border-color: $neon-purple;
-  text-shadow: 0 0 10px $neon-purple;
-  box-shadow:
-    0 0 10px rgba($neon-purple, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15);
-
-  &:hover {
-    background: #47537b;
-    box-shadow:
-      0 0 15px rgba($neon-purple, 0.7),
-      0 0 30px rgba($neon-purple, 0.4);
-  }
-}
-
-:global(.pixel-dialog .el-slider__bar) {
-  background: $neon-cyan;
-}
-
-:global(.pixel-dialog .el-slider__button) {
-  border-color: $neon-cyan;
-}
-
-:global(.pixel-dialog .el-switch.is-checked .el-switch__core) {
-  background: $neon-cyan;
-  border-color: $neon-cyan;
-}
-
-:global(.pixel-dialog .el-form-item .text-xs) {
-  color: $pixel-text-muted;
-}
-
-:global(.pixel-dialog .el-select .el-input__wrapper) {
-  background: rgba(0, 0, 0, 0.4);
-  border: 2px solid rgba($neon-cyan, 0.3);
-  color: $pixel-text;
-  clip-path: polygon(
-    0 3px,
-    3px 3px,
-    3px 0,
-    calc(100% - 3px) 0,
-    calc(100% - 3px) 3px,
-    100% 3px,
-    100% calc(100% - 3px),
-    calc(100% - 3px) calc(100% - 3px),
-    calc(100% - 3px) 100%,
-    3px 100%,
-    3px calc(100% - 3px),
-    0 calc(100% - 3px)
-  );
-
-  &:hover {
-    border-color: $neon-cyan;
-  }
-}
-
-/* select 下拉面板（也 Teleport 到 body，用 el-popper 的 class 限定） */
-:global(.el-select-dropdown) {
-  background: $pixel-dialog-bg !important;
-  border: 2px solid $pixel-border !important;
-  backdrop-filter: blur(20px);
-  box-shadow: 0 0 20px rgba($neon-cyan, 0.2);
-}
-
-:global(.el-select-dropdown__item) {
-  color: $pixel-text !important;
-
-  &:hover {
-    background: rgba($neon-cyan, 0.15) !important;
-  }
-}
-
-:global(.el-select-dropdown__item.is-selected) {
-  color: $neon-cyan-light !important;
-  font-weight: 600;
-  background: rgba($neon-cyan, 0.2) !important;
-}
-
-:global(.el-select-dropdown.is-light) {
-  background: $pixel-dialog-bg !important;
-  box-shadow: 0 0 20px rgba($neon-cyan, 0.2);
-}
-
-:global(.el-popper.is-light .el-select-dropdown) {
-  background: $pixel-dialog-bg !important;
-}
-
-:global(.el-popper.is-light .el-select-dropdown__item) {
-  color: $pixel-text !important;
-}
-
-:global(.el-popper.is-light .el-select-dropdown__item:hover) {
-  background: rgba($neon-cyan, 0.15) !important;
-}
-
-:global(.el-popper.is-light .el-select-dropdown__item.is-selected) {
-  color: $neon-cyan-light !important;
-  background: rgba($neon-cyan, 0.2) !important;
-}
-
-:global(.el-select__popper) {
-  background: $pixel-dialog-bg !important;
-}
-
-:global(.el-select__popper .el-select-dropdown__item) {
-  color: $pixel-text !important;
-}
-
-:global(.el-select__popper .el-select-dropdown__item:hover) {
-  background: rgba($neon-cyan, 0.15) !important;
-}
-
-:global(.el-select__popper .el-select-dropdown__item.is-selected) {
-  color: $neon-cyan-light !important;
-  background: rgba($neon-cyan, 0.2) !important;
-}
-
-:global(.el-select-dropdown__item) {
-  background-color: transparent;
-}
-
-:global(.el-select-dropdown__item:hover) {
-  background-color: rgba($neon-cyan, 0.15) !important;
-}
-
-:global(.pixel-dialog .el-slider__rail) {
-  background: rgba($neon-cyan, 0.15);
-}
-
-:global(.pixel-dialog .el-switch .el-switch__core) {
-  background: rgba(0, 0, 0, 0.4);
-  border-color: rgba($pixel-text-muted, 0.3);
-}
-
-:global(.pixel-dialog .el-button:not(.el-button--primary)) {
-  color: $pixel-text-muted;
-  background: transparent;
-  border: 2px solid rgba($pixel-text-muted, 0.3);
-
-  &:hover {
-    color: $pixel-text;
-    border-color: rgba($neon-cyan, 0.5);
-    background: rgba($neon-cyan, 0.1);
-  }
-}
-
-/* ===== 发布弹窗（组件内元素，scoped 可直接命中） ===== */
-.acquire {
-  color: $pixel-text;
-}
-
-.acquire-title {
-  font-weight: 600;
-  color: $pixel-text;
-  text-shadow: 0 0 8px $neon-cyan;
-}
-
-.acquire-text {
-  color: $pixel-text-muted;
-}
-
-.acquire-code :global(pre) {
-  border: 2px solid rgba($neon-cyan, 0.3);
-  background: rgba(0, 0, 0, 0.4);
-  color: $neon-cyan-light;
-  clip-path: polygon(
-    0 4px,
-    4px 4px,
-    4px 0,
-    calc(100% - 4px) 0,
-    calc(100% - 4px) 4px,
-    100% 4px,
-    100% calc(100% - 4px),
-    calc(100% - 4px) calc(100% - 4px),
-    calc(100% - 4px) 100%,
-    4px 100%,
-    4px calc(100% - 4px),
-    0 calc(100% - 4px)
-  );
-}
-
-.code-copy {
-  font-weight: 600;
-  transition: all 0.15s ease;
-  clip-path: polygon(
-    0 3px,
-    3px 3px,
-    3px 0,
-    calc(100% - 3px) 0,
-    calc(100% - 3px) 3px,
-    100% 3px,
-    100% calc(100% - 3px),
-    calc(100% - 3px) calc(100% - 3px),
-    calc(100% - 3px) 100%,
-    3px 100%,
-    3px calc(100% - 3px),
-    0 calc(100% - 3px)
-  );
 
   &:active {
-    transform: translate(1px, 2px);
-    filter: brightness(0.9);
+    transform: translateY(0);
   }
 }
 
-.acquire p {
-  color: $pixel-text-muted;
+.chat-brand {
+  padding: 6px 0 8px;
+  border-top: 1px solid var(--border);
+  color: var(--text-3);
+  font-size: 10px;
+  text-align: center;
 }
 
-/* ===== Markdown 内容 ===== */
-.markdown-content :deep(h1),
-.markdown-content :deep(h2),
-.markdown-content :deep(h3) {
-  color: $pixel-text;
-}
-
-.markdown-content :deep(p) {
-  margin: 0.5em 0;
-  color: $pixel-text;
-}
-
-.markdown-content :deep(ul),
-.markdown-content :deep(ol) {
-  padding-left: 1.5em;
-  margin: 0.5em 0;
-}
-
-.markdown-content :deep(li) {
-  margin: 0.25em 0;
-}
-
-.markdown-content :deep(pre) {
-  padding: 10px;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba($neon-cyan, 0.2);
-}
-
-.markdown-content :deep(code) {
-  padding: 15px;
-  font-size: 14px;
-  line-height: 1.6;
+/* ---------- 消息内 Markdown ---------- */
+.markdown-content {
   overflow-wrap: break-word;
-  white-space: pre-wrap;
-  word-break: normal;
-  color: $neon-cyan-light;
-  background: rgba(0, 0, 0, 0.3);
+
+  :deep(p) {
+    margin: 0 0 8px;
+  }
+
+  :deep(p:last-child) {
+    margin-bottom: 0;
+  }
+
+  :deep(ul),
+  :deep(ol) {
+    margin: 6px 0 8px;
+    padding-left: 18px;
+  }
+
+  :deep(ul) {
+    list-style: disc;
+  }
+
+  :deep(ol) {
+    list-style: decimal;
+  }
+
+  :deep(li) {
+    margin: 3px 0;
+    list-style: inherit;
+  }
+
+  :deep(a) {
+    color: var(--accent);
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  :deep(code) {
+    padding: 2px 4px;
+    border-radius: 4px;
+    background: var(--surface-2);
+    color: var(--accent-active);
+    font-family: var(--font-mono);
+    font-size: 0.92em;
+  }
+
+  :deep(pre) {
+    margin: 8px 0;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #1b1d23;
+    color: #e6e8ee;
+    font-size: 12px;
+    line-height: 1.6;
+    overflow-x: auto;
+  }
+
+  :deep(pre code) {
+    padding: 0;
+    background: none;
+    color: inherit;
+  }
+
+  :deep(blockquote) {
+    margin: 8px 0;
+    padding: 6px 10px;
+    border-left: 3px solid var(--border-strong);
+    background: var(--surface-2);
+    color: var(--text-2);
+  }
+
+  :deep(table) {
+    width: 100%;
+    margin: 8px 0;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  :deep(th),
+  :deep(td) {
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+  }
+
+  :deep(th) {
+    background: var(--surface-2);
+    color: var(--text);
+  }
+
+  :deep(td) {
+    color: var(--text-2);
+  }
 }
 
-.markdown-content :deep(blockquote) {
-  border-left: 3px solid rgba($neon-cyan, 0.4);
-  padding-left: 0.75em;
-  margin: 0.5em 0;
-  color: $pixel-text-muted;
+/* ---------- 适配 ---------- */
+@media (width <= 1024px) {
+  .cs-sidebar {
+    width: 300px;
+  }
+
+  .cs-preview {
+    padding: 24px 20px 32px;
+  }
 }
 
-.markdown-content :deep(a) {
-  color: $neon-cyan;
-  text-decoration: underline;
+@media (width <= 860px) {
+  .cs-page {
+    flex-direction: column;
+  }
+
+  .cs-sidebar {
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .cs-scroll {
+    overflow: visible;
+  }
+
+  .cs-preview {
+    height: auto;
+    min-height: 100vh;
+    padding: 20px 16px 32px;
+  }
+
+  .cs-preview-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
 }
 
-.markdown-content :deep(table) {
-  border-collapse: collapse;
-  margin: 0.5em 0;
-  width: 100%;
-}
+@media (width <= 480px) {
+  .cs-preview-actions {
+    width: 100%;
 
-.markdown-content :deep(th),
-.markdown-content :deep(td) {
-  border: 1px solid $pixel-border;
-  padding: 0.25em 0.5em;
-  text-align: left;
-}
+    .btn {
+      flex: 1;
+    }
+  }
 
-.markdown-content :deep(th) {
-  background: rgba($neon-cyan, 0.1);
-  color: $pixel-text;
-}
-
-.markdown-content :deep(td) {
-  color: $pixel-text-muted;
-}
-
-/* ===== 滚动条 ===== */
-::-webkit-scrollbar {
-  width: 5px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba($neon-cyan, 0.2);
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba($neon-cyan, 0.4);
+  .phone {
+    height: 600px;
+    border-radius: 20px;
+  }
 }
 </style>

@@ -23,15 +23,15 @@ const emit = defineEmits<{
       class="profile-modal__backdrop fixed inset-0 flex items-center justify-center z-50"
     >
       <div
-        class="profile-modal__panel pixel-profile-card w-[min(92vw,420px)] p-7 sm:p-8"
+        class="profile-modal__panel w-[min(92vw,420px)] p-7 sm:p-8"
         @click.stop
       >
         <div class="flex justify-between items-center mb-5">
-          <h3 class="pixel-profile-title text-lg font-semibold">冒险者档案</h3>
+          <h3 class="profile-modal__title text-lg font-semibold">冒险者档案</h3>
           <button
             type="button"
             @click="emit('close')"
-            class="pixel-profile-close w-9 h-9 flex items-center justify-center cursor-pointer"
+            class="profile-modal__close w-9 h-9 flex items-center justify-center cursor-pointer"
             aria-label="关闭"
           >
             <i class="fas fa-times"></i>
@@ -39,37 +39,37 @@ const emit = defineEmits<{
         </div>
         <div class="flex flex-col items-center">
           <div
-            class="relative group mb-6 imgEdit pixel-profile-avatar-wrap"
+            class="relative group mb-6 profile-modal__avatar-wrap"
             @click="emit('select-file')"
           >
             <img
               :src="editAll.img_url"
-              class="w-24 h-24 object-cover pixel-profile-avatar"
+              class="w-24 h-24 object-cover profile-modal__avatar"
               alt="用户头像"
             />
             <input type="file" @change="e => emit('upload-img', e as Event)" />
             <div
-              class="absolute inset-0 pixel-profile-avatar-shade opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer"
+              class="absolute inset-0 profile-modal__avatar-shade opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer"
             >
               <i class="fas fa-camera text-white text-xl"></i>
             </div>
           </div>
           <div class="w-full space-y-4">
             <div>
-              <label class="block text-sm pixel-label mb-1.5">昵称</label>
+              <label class="block text-sm profile-modal__label mb-1.5">昵称</label>
               <input
                 type="text"
                 :value="editAll.nickname"
                 @input="e => emit('update:nickname', (e.target as HTMLInputElement).value)"
-                class="w-full px-4 py-2.5 pixel-input name-border"
+                class="w-full px-4 py-2.5 profile-modal__input"
               />
             </div>
             <div>
-              <label class="block text-sm pixel-label mb-1.5">冒险者账号</label>
-              <div class="px-4 py-2.5 pixel-readonly text-sm">{{ nickAll.userNickname }}</div>
+              <label class="block text-sm profile-modal__label mb-1.5">冒险者账号</label>
+              <div class="px-4 py-2.5 profile-modal__readonly text-sm">{{ nickAll.userNickname }}</div>
             </div>
           </div>
-          <div class="flex gap-3 mt-7 w-full">
+          <div class="profile-modal__actions flex gap-3 mt-7 w-full">
             <button
               type="button"
               @click="emit('close')"
@@ -92,11 +92,9 @@ const emit = defineEmits<{
 </template>
 
 <style lang="scss" scoped>
-@use '@/styles/pixel-theme' as *;
-
 .profile-modal__backdrop {
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(8px);
+  background: rgba(15, 18, 25, 0.45);
+  backdrop-filter: blur(4px);
 }
 
 .profile-modal-enter-active {
@@ -136,121 +134,96 @@ const emit = defineEmits<{
   transform: translateY(0) scale(1);
 }
 
-.pixel-profile-card {
-  background: $pixel-dialog-bg;
-  border: 2px solid $pixel-border;
-  box-shadow:
-    0 0 30px rgba($neon-cyan, 0.2),
-    0 0 60px rgba($neon-magenta, 0.15),
-    0 20px 50px rgba(0, 0, 0, 0.5);
-  clip-path: polygon(
-    0 8px,
-    8px 8px,
-    8px 0,
-    calc(100% - 8px) 0,
-    calc(100% - 8px) 8px,
-    100% 8px,
-    100% calc(100% - 8px),
-    calc(100% - 8px) calc(100% - 8px),
-    calc(100% - 8px) 100%,
-    8px 100%,
-    8px calc(100% - 8px),
-    0 calc(100% - 8px)
-  );
+.profile-modal__panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
 }
 
-.pixel-profile-title {
-  font-family: myFirstFont, 'VT323', ui-monospace, monospace;
-  font-size: 1.35rem;
-  font-weight: normal;
-  color: #fff;
-  letter-spacing: 0.06em;
-  text-shadow: 0 0 10px $neon-cyan;
-}
-
-.pixel-profile-close {
-  border: 2px solid transparent;
-  color: $pixel-text-muted;
-  background: transparent;
-  transition:
-    transform 0.07s ease-out,
-    box-shadow 0.07s ease-out,
-    color 0.15s ease,
-    background 0.15s ease,
-    border-color 0.15s ease;
-
-  &:hover {
-    color: $pixel-text;
-    background: rgba($neon-cyan, 0.14);
-    border-color: rgba($neon-cyan, 0.3);
-  }
-
-  &:active {
-    transform: translate(1px, 2px);
-
-    @include pixel-press-shadow;
-
-    color: $pixel-text;
-  }
-}
-
-.pixel-profile-avatar-wrap {
-  cursor: pointer;
-}
-
-.pixel-profile-avatar {
-  border: 2px solid $neon-cyan;
-  box-shadow:
-    0 0 15px rgba($neon-cyan, 0.3),
-    0 0 30px rgba($neon-cyan, 0.1);
-  clip-path: polygon(
-    0 6px,
-    6px 6px,
-    6px 0,
-    calc(100% - 6px) 0,
-    calc(100% - 6px) 6px,
-    100% 6px,
-    100% calc(100% - 6px),
-    calc(100% - 6px) calc(100% - 6px),
-    calc(100% - 6px) 100%,
-    6px 100%,
-    6px calc(100% - 6px),
-    0 calc(100% - 6px)
-  );
-}
-
-.pixel-profile-avatar-shade {
-  background: rgba(42, 36, 56, 0.5);
-  transition: opacity 0.2s ease;
-}
-
-.pixel-label {
-  color: $pixel-text-muted;
+.profile-modal__title {
+  color: var(--text);
   font-weight: 600;
 }
 
-.pixel-input {
-  background: rgba(0, 0, 0, 0.4);
-  border: 2px solid rgba($neon-cyan, 0.3);
-  color: $pixel-text;
-  outline: none;
-  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.3);
+.profile-modal__close {
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-3);
+  transition:
+    background-color 0.15s var(--ease),
+    color 0.15s var(--ease);
 
-  &:focus {
-    border-color: $neon-cyan;
-    box-shadow:
-      inset 2px 2px 0 rgba(0, 0, 0, 0.3),
-      0 0 10px rgba($neon-cyan, 0.3);
+  &:hover {
+    background: var(--surface-hover);
+    color: var(--text);
+  }
+
+  &:active {
+    background: var(--surface-3);
   }
 }
 
-.pixel-readonly {
-  background: rgba($neon-cyan, 0.08);
-  border: 2px dashed rgba($neon-cyan, 0.25);
-  color: $pixel-text;
+.profile-modal__avatar-wrap {
+  cursor: pointer;
 }
 
-.imgEdit input {
+.profile-modal__avatar {
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface-2);
+}
+
+.profile-modal__avatar-shade {
+  border-radius: 50%;
+  background: rgba(15, 18, 25, 0.45);
+  transition: opacity 0.2s var(--ease);
+}
+
+.profile-modal__label {
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+.profile-modal__input {
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  outline: none;
+  transition:
+    background-color 0.18s var(--ease),
+    border-color 0.18s var(--ease),
+    box-shadow 0.18s var(--ease);
+
+  &::placeholder {
+    color: var(--text-3);
+  }
+
+  &:hover {
+    border-color: var(--border);
+  }
+
+  &:focus {
+    border-color: var(--accent);
+    background: var(--surface);
+    box-shadow: 0 0 0 3px var(--accent-ring);
+  }
+}
+
+.profile-modal__readonly {
+  border: 1px dashed var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text-3);
+}
+
+.profile-modal__actions .pixel-btn {
+  border-radius: 10px;
+}
+
+.profile-modal__avatar-wrap input {
   display: none;
 }
 </style>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref, onMounted, watch, nextTick, onUnmounted } from 'vue'
+import { computed, reactive, ref, onMounted, watch, nextTick, onUnmounted } from 'vue'
 // import MarkdownIt from 'markdown-it'
 // import mdKatex from '@traptitech/markdown-it-katex'
 // import hljs from 'highlight.js';
@@ -17,6 +17,7 @@ import NavBar from './components/NavBar.vue'
 import SideBar from './components/SideBar.vue'
 import ChatMessageItem from './components/ChatMessageItem.vue'
 import ChatInput from './components/ChatInput.vue'
+import { useConversationBranches, type BranchNode } from './useConversationBranches'
 import { useRouter } from 'vue-router'
 import {
   allInstall,
@@ -25,7 +26,8 @@ import {
   promptObject,
   templateObject,
   aiModelsObject,
-  requestObject
+  requestObject,
+  searchResultObject
 } from '@/utils/types/ai'
 import { BASE_URL } from '@/utils/http/config'
 import { useStore } from '@/store/index'
@@ -66,9 +68,9 @@ const CONSTATNS = {
   },
   // 模型相关
   MODELS: {
-    DEEPSEEK_V3: 'deepseek-flash',
+    DEEPSEEK_V4: 'deepseek-v4-flash',
     SPARK_ULTRA: 'spark-pro',
-    DEFAULT_MODULE: 'deepseek-flash', // deepseek快速模式
+    DEFAULT_MODULE: 'deepseek-flash', // DeepSeek V4 快速模式
     REASONER_MODULE: 'deepseek-reasoner' // deepseek思考模式
   },
   // 消息提示
@@ -149,9 +151,9 @@ let pageSize = ref(CONSTATNS.DEFAULT.PAGE_SIZE) // 每页展示条目
 let total = ref(0) // 总条数
 let editIndex = ref(-1)
 let editText = ref('')
-let currentModel = ref(CONSTATNS.MODELS.DEEPSEEK_V3)
+let currentModel = ref(CONSTATNS.MODELS.DEEPSEEK_V4)
 let aiModels: aiModelsObject[] = reactive([
-  { id: CONSTATNS.MODELS.DEEPSEEK_V3, name: 'DeepSeek-V3' },
+  { id: CONSTATNS.MODELS.DEEPSEEK_V4, name: 'DeepSeek-V4' },
   { id: CONSTATNS.MODELS.SPARK_ULTRA, name: 'Spark Pro' }
 ])
 let isDisabled = ref(true)
@@ -169,13 +171,67 @@ let closeScroll = ref(false)
 let lastScrollPosition = ref(0)
 
 let isDeepThinking = ref(false)
+// 联网搜索开关：开启后先检索网页，再让模型结合资料回答
+let isWebSearch = ref(false)
+// 联网资料抽屉：展示某轮回答引用的全部网页
+let searchDrawerVisible = ref(false)
+let searchDrawerResults = ref<searchResultObject[]>([])
+// 从回答里的引用标签进入时，定位并高亮对应资料
+let searchDrawerFocus = ref(-1)
 let isLoadingCategories = ref(true)
 let apiModuleId = ref(CONSTATNS.MODELS.DEFAULT_MODULE)
-let requestContent: requestObject[] = reactive([])
 let responce = ''
+
+// ===== 对话分支（仅用于版本切换） =====
+const {
+  activeLeafId,
+  viewPath,
+  getNode,
+  pathTo,
+  addNode,
+  getSiblings,
+  versionOf,
+  deepestLeaf,
+  commitActiveLeaf,
+  buildAllText,
+  reset: resetBranches,
+  loadLinear,
+  serialize,
+  restore
+} = useConversationBranches()
+
+const streamingNodeId = ref('')
+const isAnchoring = ref(false)
+
+// 当前路径上每一轮的版本信息，供消息旁的 < X/N > 翻页器使用
+const turnMeta = computed(() => {
+  const path = viewPath.value
+  const result: Array<{
+    user: { index: number; total: number }
+    assistant: { index: number; total: number }
+  }> = []
+  for (let i = 0; i + 1 < path.length; i += 2) {
+    result.push({
+      user: versionOf(path[i]),
+      assistant: versionOf(path[i + 1])
+    })
+  }
+  return result
+})
+
+// 用节点 id 做 key，切换版本时强制重建对应轮次
+const branchTurnKeys = computed(() => {
+  const path = viewPath.value
+  const keys: string[] = []
+  for (let i = 0; i + 1 < path.length; i += 2) {
+    keys.push(path[i].id)
+  }
+  return keys
+})
 
 let downloadClickHandler: ((e: MouseEvent) => void) | null = null
 let _scrollRafId: number | null = null
+let _autoScrollRafId: number | null = null
 
 // 文件上传参数
 let filenameAll = ref({
@@ -214,6 +270,10 @@ onUnmounted(() => {
     cancelAnimationFrame(_scrollRafId)
     _scrollRafId = null
   }
+  if (_autoScrollRafId !== null) {
+    cancelAnimationFrame(_autoScrollRafId)
+    _autoScrollRafId = null
+  }
   if (downloadClickHandler) {
     chatContainer.value?.removeEventListener('click', downloadClickHandler)
   }
@@ -231,11 +291,32 @@ const windowScroll = () => {
     const el = chatContainer.value
     if (!el) return
     const currentScroll = el.scrollTop
+    const distanceToBottom = el.scrollHeight - el.clientHeight - currentScroll
     const direction = currentScroll > lastScrollPosition.value ? 'down' : 'up'
     lastScrollPosition.value = currentScroll
-    if (direction == 'up') {
-      closeScroll.value = true
+    if (distanceToBottom > 80) {
+      // 离开底部后再向上滚动，暂停自动跟随
+      if (direction == 'up') closeScroll.value = true
+    } else {
+      // 回到底部附近时恢复自动跟随
+      closeScroll.value = false
     }
+  })
+}
+
+// 自动滚到底部：合并同一帧的多次更新，直接定位避免平滑动画抖动
+const scrollToBottom = () => {
+  if (_autoScrollRafId !== null) return
+  _autoScrollRafId = requestAnimationFrame(() => {
+    _autoScrollRafId = null
+    const el = chatContainer.value
+    if (!el || closeScroll.value || isAnchoring.value) return
+    // instant 不受容器 scroll-behavior: smooth 影响，切换会话时直接贴底
+    el.scrollTo({
+      top: el.scrollHeight,
+      behavior: 'instant'
+    })
+    lastScrollPosition.value = el.scrollTop
   })
 }
 
@@ -373,6 +454,10 @@ const switchModel = (id: string) => {
     return
   }
   currentModel.value = id
+  // 讯飞星火不支持联网搜索，切过去时自动关闭
+  if (id !== CONSTATNS.MODELS.DEEPSEEK_V4) {
+    isWebSearch.value = false
+  }
 }
 
 // 复制功能
@@ -389,57 +474,88 @@ const copyCode = (ele: string) => {
   })
 }
 
-// 保存对话信息
+// 保存当前对话：线性历史 + 完整分支树，保证重新进入后仍能看到所有版本和翻页器
+// 串行写入，避免快速切换版本时多次覆盖请求互相交错
+let saveChain: Promise<void> = Promise.resolve()
 const saveMessage = () => {
-  if (currentModel.value == CONSTATNS.MODELS.DEEPSEEK_V3) {
-    requestContent.push({ role: 'assistant', content: responce })
-    return
-  }
-  interface transfer {
-    myself_reply: string
-    ai_reply: string
-    category_id: number
-  }
-  let data: Array<transfer> = []
-  for (let i = recordLength.value; i < allText.length; i++) {
-    let transfer = {
-      myself_reply: allText[i].userText,
-      ai_reply: allText[i].adminContent.adminText,
-      category_id: currentIndex.value,
-      user_id: nickAll.nicknameId
-    }
-    data.push(transfer)
-  }
-  aicgApi.addDialogue(data).then(res => {
-    if (res.data.code == 0) {
-      onceQueryDialogue(currentIndex.value, 1)
-    } else {
-      showMessage(res.data.msg, 'warning')
-    }
-  })
+  if (currentModel.value !== CONSTATNS.MODELS.SPARK_ULTRA || currentIndex.value == 0) return
+  if (!allText.length) return
+  const dialogue = allText.map(item => ({
+    myself_reply: item.userText,
+    ai_reply: item.adminContent.adminText
+  }))
+  const tree = serialize()
+  const categoryId = currentIndex.value
+  const userId = nickAll.nicknameId
+  saveChain = saveChain.then(() =>
+    Promise.all([
+      aicgApi.replaceDialogue({
+        category_id: categoryId,
+        user_id: userId,
+        dialogue
+      }),
+      aicgApi.saveDialogueTree({
+        category_id: categoryId,
+        user_id: userId,
+        tree
+      })
+    ])
+      .then(([dialogueRes, treeRes]) => {
+        if (dialogueRes.data.code != 0) {
+          showMessage(dialogueRes.data.msg, 'warning')
+        } else if (treeRes.data.code != 0) {
+          showMessage(treeRes.data.msg, 'warning')
+        }
+      })
+      .catch(() => {
+        showMessage('对话保存失败，请稍后再试', 'error')
+      })
+  )
 }
 
 // 查询对话信息接口
 const onceQueryDialogue = (id: number, index: number) => {
+  // 解决异步竞态问题
+  const isStale = () => index == 0 && !(currentIndex.value == id)
+  const applyItems = (items: allInstall[]) => {
+    allText.splice(0, allText.length, ...items)
+    timeCount.value = allText.length
+    recordLength.value = allText.length
+    copyCode('.code-block-header__copy')
+  }
   aicgApi.queryDialogue({ category_id: id, user_id: nickAll.nicknameId }).then(res => {
-    if (res.data.code == 0) {
-      // 解决异步竞态问题
-      if (index == 0 && !(currentIndex.value == id)) {
-        return
-      }
-      allText.splice(0, allText.length)
-      allText.push(...res.data.data)
-      timeCount.value = allText.length
-      recordLength.value = allText.length
-      copyCode('.code-block-header__copy')
-    } else {
+    if (res.data.code != 0) {
       showMessage(res.data.msg, 'error')
+      return
     }
+    if (isStale()) return
+    const linearData = res.data.data as allInstall[]
+    const applyLinear = () => {
+      const leafId = loadLinear(linearData)
+      applyItems(leafId ? buildAllText(pathTo(leafId)) : [])
+    }
+    // 优先还原完整的版本树；没有树或树不可用时退回线性历史
+    aicgApi
+      .queryDialogueTree({ category_id: id, user_id: nickAll.nicknameId })
+      .then(treeRes => {
+        if (isStale()) return
+        if (treeRes.data.code == 0 && treeRes.data.data && restore(treeRes.data.data)) {
+          applyItems(buildAllText(viewPath.value))
+          return
+        }
+        applyLinear()
+      })
+      .catch(() => {
+        if (isStale()) return
+        applyLinear()
+      })
   })
 }
 
 // 回车键提交、ctrl+enter组合键换行
 const handleKeydown = (event: KeyboardEvent) => {
+  // 中文输入法组合输入时忽略回车
+  if (event.isComposing) return
   if (event.ctrlKey && event.key == 'Enter') {
     event.preventDefault()
     const textarea = event.target as HTMLTextAreaElement
@@ -471,65 +587,131 @@ const renderInWorker = (content: string): Promise<string> => {
   })
 }
 
-const sendTxt = <T extends string>(value: T) => {
-  if (isAnswering.value) {
-    showMessage(CONSTATNS.MESSAGES.ANSWERING, 'warning')
-    return
+// DeepSeek 上下文：沿当前分支回溯到目标用户消息
+const buildDeepSeekContext = (userNodeId: string): requestObject[] => {
+  return pathTo(userNodeId)
+    .filter(node => node.role === 'user' || node.raw.trim() !== '')
+    .map(node => ({
+      role: node.role,
+      content: node.role === 'user' ? node.apiContent : node.raw
+    }))
+}
+
+// 流式结束后的统一收尾
+const finishStream = (status: 'done' | 'error' | 'stopped', persist = status !== 'error') => {
+  if (!streamingNodeId.value) return
+  const node = getNode(streamingNodeId.value)
+  if (node) {
+    node.status = status
+    node.raw = responce
+    if (node.adminContent) node.adminContent.isShow = false
+    if (node.thinkContent && node.thinkContent.status === '1') {
+      node.thinkContent.status = status === 'done' ? '3' : '2'
+    }
   }
-  if (!value) {
-    showMessage(CONSTATNS.MESSAGES.INPUT_REQUIRED, 'warning')
-    return
+  streamingNodeId.value = ''
+  markdownContent.value = ''
+  serviceThinkContent.value = ''
+  responce = ''
+  isAnswering.value = false
+  isStopText.value = false
+  isTyping.value = false
+  timeCount.value = timeCount.value + 1
+  nextTick(() => {
+    copyCode('.code-block-header__copy')
+  })
+  if (persist) saveMessage()
+  closeScroll.value = false
+  clearFileText()
+}
+
+// 把搜索到的网页整理成模型可读的参考资料
+const buildSearchContext = (results: searchResultObject[]): string => {
+  const blocks = results.map((item, index) => {
+    const summary = (item.summary || item.snippet || '').replace(/\s+/g, ' ').trim()
+    return `[${index + 1}] ${item.title || item.url}\n链接：${item.url}\n摘要：${summary}`
+  })
+  return [
+    '以下是联网搜索到的最新资料，请结合这些资料回答用户问题，引用时标注编号（如 [1]）。',
+    '资料与问题无关时请忽略，不要编造资料中没有的信息。',
+    '',
+    blocks.join('\n\n')
+  ].join('\n')
+}
+
+// 调用后端搜索代理（密钥保存在服务端）
+const searchWeb = async (query: string): Promise<searchResultObject[]> => {
+  const res = await aicgApi.webSearch({ query: query.trim().slice(0, 128), count: 8 })
+  if (res.data.code != 0) throw new Error(res.data.msg || '网页搜索失败')
+  return Array.isArray(res.data.data) ? res.data.data.slice(0, 8) : []
+}
+
+// 打开某一轮回答的联网资料抽屉，focusIndex 用于定位点击的引用
+const openSearchSources = (results: searchResultObject[] = [], focusIndex = -1) => {
+  searchDrawerResults.value = results
+  searchDrawerFocus.value = focusIndex
+  searchDrawerVisible.value = true
+  if (focusIndex < 0) return
+  // 等抽屉展开和卡片渲染完成后再滚动
+  nextTick(() => {
+    window.setTimeout(() => {
+      const card = document.querySelector(
+        `.search-source-drawer [data-source-index="${focusIndex}"]`
+      ) as HTMLElement | null
+      card?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }, 260)
+  })
+}
+
+// 接口日期格式不固定，统一显示为 YYYY/MM/DD
+const formatSourceDate = (date?: string | null): string => {
+  if (!date) return ''
+  const parsed = new Date(date)
+  if (!Number.isNaN(parsed.getTime())) {
+    const year = parsed.getFullYear()
+    const month = String(parsed.getMonth() + 1).padStart(2, '0')
+    const day = String(parsed.getDate()).padStart(2, '0')
+    return `${year}/${month}/${day}`
   }
-  if (filenameAll.value.isFileContent && filenameAll.value.status == '1') {
-    showMessage('卷轴正在投递中，请稍后再试', 'warning')
-    return
-  } else if (filenameAll.value.isFileContent && filenameAll.value.status == '3') {
-    showMessage('卷轴投递失败，请重新投递', 'warning')
-    return
-  }
+  const matched = String(date).match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/)
+  return matched
+    ? `${matched[1]}/${matched[2].padStart(2, '0')}/${matched[3].padStart(2, '0')}`
+    : ''
+}
+
+// 站点图标加载失败时退回地球图标
+const handleSourceIconError = (event: Event) => {
+  const img = event.target as HTMLImageElement
+  img.style.display = 'none'
+}
+
+// 发起一轮请求：发送、编辑重发、重新生成共用
+const startRequest = (
+  turnIndex: number,
+  userNode: BranchNode,
+  assistantNode: BranchNode,
+  searchResults: searchResultObject[] = []
+) => {
   isAnswering.value = true
-  contentText.value = ''
-  if (textareaDialogue.value) {
-    textareaDialogue.value.style.height = 'auto'
-  }
-  filenameAll.value.isFileContent = false
-  if (currentModel.value == CONSTATNS.MODELS.DEEPSEEK_V3) {
-    let messagesContent = ''
-    if (akiText.value && isAskText.value) {
-      messagesContent = akiText.value + '\n\n' + value
-      isAskText.value = false
-      akiText.value = ''
-    } else {
-      messagesContent = value
-    }
-    if (apiModuleId.value == CONSTATNS.MODELS.REASONER_MODULE) {
-      allText.push({
-        userText: messagesContent,
-        adminContent: { adminText: '', isShow: true },
-        thinkContent: {
-          thinkText: '',
-          status: '1',
-          isShow: true,
-          isOpen: false
-        }
-      })
-    } else {
-      allText.push({
-        userText: messagesContent,
-        adminContent: { adminText: '', isShow: true }
-      })
-    }
-    timeCount.value = allText.length - 1
-    requestContent.push({
-      role: 'user',
-      content: messagesContent + wordOrpdfText.value
-    })
-    let params = {
-      text: requestContent,
+  streamingNodeId.value = assistantNode.id
+  timeCount.value = turnIndex
+  markdownContent.value = ''
+  serviceThinkContent.value = ''
+  responce = ''
+  isStopText.value = false
+  isTyping.value = false
+  closeScroll.value = false
+  ctrl.value = new AbortController()
+
+  if (currentModel.value == CONSTATNS.MODELS.DEEPSEEK_V4) {
+    const context = buildDeepSeekContext(userNode.id)
+    const params = {
+      // 搜索结果作为前置 system 消息，避免用户问题被资料淹没
+      text: searchResults.length
+        ? [{ role: 'system', content: buildSearchContext(searchResults) }, ...context]
+        : context,
       moduleId: apiModuleId.value
     }
-    closeScroll.value = false
-    ctrl.value = new AbortController()
     fetchEventSource(CONSTATNS.API.BASE_URL + CONSTATNS.API.DEEPSEEK_MODULE, {
       method: 'POST',
       headers: {
@@ -552,10 +734,8 @@ const sendTxt = <T extends string>(value: T) => {
         const msg = allText[snapshotIndex]
         if (!msg) return
 
-        lastScrollPosition.value = 0
         if (
-          res.choices &&
-          res.choices[0].delta.reasoning_content &&
+          res.choices?.[0]?.delta?.reasoning_content &&
           apiModuleId.value == CONSTATNS.MODELS.REASONER_MODULE
         ) {
           serviceThinkContent.value += res.choices[0].delta.reasoning_content
@@ -571,10 +751,10 @@ const sendTxt = <T extends string>(value: T) => {
           msg.adminContent.isShow = false
           isStopText.value = true
         }
-        if (serviceThinkContent.value && res.choices && res.choices[0].delta.content) {
+        if (serviceThinkContent.value && res.choices?.[0]?.delta?.content) {
           if (msg.thinkContent) msg.thinkContent.status = '3'
         }
-        if (res.choices && res.choices[0].delta.content) {
+        if (res.choices?.[0]?.delta?.content) {
           markdownContent.value += res.choices[0].delta.content
           responce += res.choices[0].delta.content
           msg.adminContent.isShow = false
@@ -585,73 +765,51 @@ const sendTxt = <T extends string>(value: T) => {
           })
           isStopText.value = true
         }
-        if (res.message) {
-          isAnswering.value = false
+        // 仅在没有正常 choices 时才把 message 当作错误信息
+        if (res.message && !res.choices?.length) {
           msg.adminContent.isShow = false
           msg.adminContent.adminText = res.message
+          finishStream('error')
         }
       },
       onclose() {
-        // 关闭连接
-        markdownContent.value = ''
-        serviceThinkContent.value = ''
-        timeCount.value = timeCount.value + 1
-        isAnswering.value = false
-        isStopText.value = false
-        isTyping.value = false
-        nextTick(() => {
-          copyCode('.code-block-header__copy')
-        })
-        saveMessage()
-        closeScroll.value = false
-        clearFileText()
+        finishStream('done')
       },
-      onerror() {
+      onerror(err) {
+        if (!streamingNodeId.value) throw err
         const idx = timeCount.value
-        if (apiModuleId.value == CONSTATNS.MODELS.REASONER_MODULE) {
-          if (allText[idx]?.thinkContent) allText[idx].thinkContent!.status = '2'
-        }
-        isAnswering.value = false
         if (allText[idx]) {
           allText[idx].adminContent.isShow = false
           allText[idx].adminContent.adminText = CONSTATNS.MESSAGES.SERVER_ERROR
         }
-        timeCount.value = timeCount.value + 1
-        responce = ''
+        finishStream('error')
+        // 抛出异常以终止 fetchEventSource 的默认无限重试
+        throw err
       }
+    }).catch(() => {
+      // 请求失败或用户中止：错误提示已在 onerror 中处理，无需继续重试
     })
   } else if (currentModel.value == CONSTATNS.MODELS.SPARK_ULTRA) {
-    let messagesContent = ''
-    if (akiText.value && isAskText.value) {
-      messagesContent = akiText.value + '\n\n' + value
-      isAskText.value = false
-      akiText.value = ''
-    } else {
-      messagesContent = value
-    }
-    allText.push({
-      userText: value,
-      adminContent: { adminText: '', isShow: true }
-    })
-    let params = {
+    const systemContent = searchResults.length
+      ? `${roleContent.value}\n\n${buildSearchContext(searchResults)}`
+      : roleContent.value
+    const params = {
       max_tokens: 4096,
       top_k: 4,
       temperature: 0.5,
       messages: [
         {
           role: 'system',
-          content: roleContent.value
+          content: systemContent
         },
         {
           role: 'user',
-          content: messagesContent
+          content: userNode.apiContent || userNode.content
         }
       ],
       model: 'generalv3',
       stream: true
     }
-    closeScroll.value = false
-    ctrl.value = new AbortController()
     fetchEventSource(CONSTATNS.API.CHAT_COMPLETIONS, {
       method: 'POST',
       headers: {
@@ -663,51 +821,150 @@ const sendTxt = <T extends string>(value: T) => {
       openWhenHidden: true,
       onmessage(ev) {
         if (ev.data == '[DONE]') {
-          markdownContent.value = ''
-          timeCount.value = timeCount.value + 1
-          isAnswering.value = false
-          isStopText.value = false
-          isTyping.value = false
-          if (currentIndex.value == 0) {
-            return
-          }
-          saveMessage()
-          closeScroll.value = false
-          clearFileText()
-        } else if (ev.data) {
-          try {
-            var res = JSON.parse(ev.data)
-          } catch {
-            return
-          }
-          const snapshotIndex = timeCount.value
-          if (!allText[snapshotIndex] || !res.choices?.[0]?.delta?.content) return
-          markdownContent.value += res.choices[0].delta.content
-          allText[snapshotIndex].adminContent.isShow = false
-          renderInWorker(markdownContent.value).then(xfText => {
-            if (allText[snapshotIndex]) {
-              allText[snapshotIndex].adminContent.adminText = xfText
-            }
-          })
-          isStopText.value = true
-          lastScrollPosition.value = 0
+          finishStream('done')
+          return
         }
+        if (!ev.data) return
+        let res: any
+        try {
+          res = JSON.parse(ev.data)
+        } catch {
+          return
+        }
+        const snapshotIndex = timeCount.value
+        const msg = allText[snapshotIndex]
+        if (!msg) return
+        // 讯飞星火每个成功分片都会带 message: "Success"，不能当作回答内容
+        if (typeof res.code === 'number' && res.code !== 0) {
+          msg.adminContent.isShow = false
+          msg.adminContent.adminText = res.message || CONSTATNS.MESSAGES.SERVER_ERROR
+          finishStream('error')
+          return
+        }
+        const delta = res.choices?.[0]?.delta?.content
+        if (!delta) return
+        markdownContent.value += delta
+        responce += delta
+        msg.adminContent.isShow = false
+        renderInWorker(markdownContent.value).then(xfText => {
+          if (allText[snapshotIndex]) {
+            allText[snapshotIndex].adminContent.adminText = xfText
+          }
+        })
+        isStopText.value = true
       },
-      onclose() {},
-      onerror() {
-        isAnswering.value = false
+      onclose() {
+        finishStream('done')
+      },
+      onerror(err) {
+        if (!streamingNodeId.value) throw err
+        const idx = timeCount.value
+        if (allText[idx]) {
+          allText[idx].adminContent.isShow = false
+          allText[idx].adminContent.adminText = CONSTATNS.MESSAGES.SERVER_ERROR
+        }
+        finishStream('error')
+        // 抛出异常以终止 fetchEventSource 的默认无限重试
+        throw err
       }
+    }).catch(() => {
+      // 请求失败或用户中止，无需继续重试
     })
   }
 }
 
+// 需要联网时先搜索，再把结果带进本轮请求（仅 DeepSeek 支持）
+const runTurn = (turnIndex: number, userNode: BranchNode, assistantNode: BranchNode) => {
+  if (!isWebSearch.value || currentModel.value !== CONSTATNS.MODELS.DEEPSEEK_V4) {
+    startRequest(turnIndex, userNode, assistantNode)
+    return
+  }
+  isAnswering.value = true
+  searchWeb(userNode.content)
+    .then(results => {
+      if (!getNode(assistantNode.id)) return
+      assistantNode.searchResults = results.length ? results : null
+      const item = allText[turnIndex]
+      if (item) item.searchResults = assistantNode.searchResults || undefined
+      if (!results.length) showMessage('未搜索到相关网页，将直接回答', 'warning')
+    })
+    .catch((err: Error) => {
+      if (!getNode(assistantNode.id)) return
+      showMessage(err.message || '联网搜索失败，将直接回答', 'warning')
+    })
+    .finally(() => {
+      // 搜索期间切换了分类或新建了对话，放弃这一轮
+      if (!getNode(assistantNode.id)) {
+        isAnswering.value = false
+        return
+      }
+      startRequest(turnIndex, userNode, assistantNode, assistantNode.searchResults || [])
+    })
+}
+
+const sendTxt = <T extends string>(value: T) => {
+  if (isAnswering.value) {
+    showMessage(CONSTATNS.MESSAGES.ANSWERING, 'warning')
+    return
+  }
+  if (!value) {
+    showMessage(CONSTATNS.MESSAGES.INPUT_REQUIRED, 'warning')
+    return
+  }
+  if (filenameAll.value.isFileContent && filenameAll.value.status == '1') {
+    showMessage('卷轴正在投递中，请稍后再试', 'warning')
+    return
+  } else if (filenameAll.value.isFileContent && filenameAll.value.status == '3') {
+    showMessage('卷轴投递失败，请重新投递', 'warning')
+    return
+  }
+  contentText.value = ''
+  if (textareaDialogue.value) {
+    textareaDialogue.value.style.height = 'auto'
+  }
+  filenameAll.value.isFileContent = false
+
+  let messagesContent = ''
+  if (akiText.value && isAskText.value) {
+    messagesContent = akiText.value + '\n\n' + value
+    isAskText.value = false
+    akiText.value = ''
+  } else {
+    messagesContent = value
+  }
+
+  const isDeepSeek = currentModel.value == CONSTATNS.MODELS.DEEPSEEK_V4
+  const userNode = addNode({
+    parentId: activeLeafId.value || null,
+    role: 'user',
+    content: messagesContent,
+    apiContent: messagesContent + wordOrpdfText.value,
+    status: 'done'
+  })
+  const assistantNode = addNode({
+    parentId: userNode.id,
+    role: 'assistant',
+    adminContent: { adminText: '', isShow: true },
+    thinkContent:
+      isDeepSeek && apiModuleId.value == CONSTATNS.MODELS.REASONER_MODULE
+        ? { thinkText: '', status: '1', isShow: true, isOpen: false }
+        : null,
+    status: 'streaming'
+  })
+  commitActiveLeaf(assistantNode.id)
+
+  const turnIndex = allText.length
+  allText.push({
+    userText: messagesContent,
+    adminContent: assistantNode.adminContent!,
+    thinkContent: assistantNode.thinkContent || undefined
+  })
+  runTurn(turnIndex, userNode, assistantNode)
+}
+
 // 监听聊天内容变化,实时改变聊天内容高度
 watch([allText], () => {
-  nextTick(() => {
-    if (chatContainer.value && !closeScroll.value) {
-      chatContainer.value.scrollTop = chatContainer.value.scrollHeight
-    }
-  })
+  nextTick(scrollToBottom)
 })
 
 watch(contentText, newVal => {
@@ -723,9 +980,15 @@ const selectMessage = <T extends categories>(item: T) => {
   if (ctrl.value) {
     ctrl.value.abort()
   }
+  // 切换会话时终止上一段的流式状态，且不写入旧会话
+  if (streamingNodeId.value) {
+    finishStream('stopped', false)
+  }
   stopSpeech()
   // replacement()
   currentModel.value = CONSTATNS.MODELS.SPARK_ULTRA
+  // 讯飞模型不支持联网搜索
+  isWebSearch.value = false
   if (currentModel.value == CONSTATNS.MODELS.SPARK_ULTRA) {
     isDeepThinking.value = false
     apiModuleId.value = CONSTATNS.MODELS.DEFAULT_MODULE
@@ -745,27 +1008,11 @@ const selectMessage = <T extends categories>(item: T) => {
 
 // 停止sse输出
 const stopExport = () => {
+  if (!streamingNodeId.value) return
   if (ctrl.value) {
     ctrl.value.abort()
   }
-  if (apiModuleId.value == CONSTATNS.MODELS.REASONER_MODULE) {
-    if (allText[timeCount.value].thinkContent!.status == '1') {
-      allText[timeCount.value].thinkContent!.status = '2'
-      thinkStatus(allText[timeCount.value])
-    }
-  }
-  isStopText.value = false
-  isAnswering.value = false
-  isTyping.value = false
-  markdownContent.value = ''
-  serviceThinkContent.value = ''
-  timeCount.value = timeCount.value + 1
-  nextTick(() => {
-    copyCode('.code-block-header__copy')
-  })
-  saveMessage()
-  closeScroll.value = false
-  clearFileText()
+  finishStream('stopped')
 }
 
 // 清除历史消息
@@ -785,6 +1032,9 @@ const clear = () => {
         .then(res => {
           if (res.data.code == 0) {
             allText.splice(0, allText.length)
+            resetBranches()
+            streamingNodeId.value = ''
+            responce = ''
             isAnswering.value = false
             timeCount.value = 0
             recordLength.value = 0
@@ -798,6 +1048,9 @@ const clear = () => {
     }
   } else {
     allText.splice(0, allText.length)
+    resetBranches()
+    streamingNodeId.value = ''
+    responce = ''
     timeCount.value = 0
     isAnswering.value = false
   }
@@ -837,39 +1090,37 @@ const exportConversation = () => {
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    font-family: ui-sans-serif, "PingFang SC", "Microsoft YaHei", sans-serif;
-    background: #0a0a12; color: #f7ead0; min-height: 100vh;
+    font-family: ui-sans-serif, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #f6f7f9; color: #1d2129; min-height: 100vh;
     padding: 40px 20px;
   }
   .container { max-width: 900px; margin: 0 auto; }
   .header {
-    text-align: center; padding-bottom: 32px; margin-bottom: 32px;
-    border-bottom: 2px solid rgba(125,216,199,0.2);
+    text-align: center; padding-bottom: 28px; margin-bottom: 32px;
+    border-bottom: 1px solid #e6e8ee;
   }
-  .header h1 { font-size: 24px; color: #7dd8c7; margin-bottom: 8px; }
-  .header p { font-size: 13px; color: #b6a989; }
+  .header h1 { font-size: 24px; font-weight: 600; color: #1d2129; margin-bottom: 8px; }
+  .header p { font-size: 13px; color: #8b92a1; }
   .msg { display: flex; margin-bottom: 20px; }
   .msg--user { justify-content: flex-end; }
   .msg--ai { justify-content: flex-start; }
-  .msg__bubble { max-width: 75%; padding: 12px 16px; font-size: 14px; line-height: 1.7; word-break: break-word; }
+  .msg__bubble { max-width: 78%; padding: 12px 16px; font-size: 14px; line-height: 1.75; word-break: break-word; border-radius: 14px; }
   .msg__bubble--user {
-    background: linear-gradient(135deg, rgba(125,216,199,0.25), rgba(109,127,182,0.2));
-    border: 1px solid rgba(125,216,199,0.35); color: #f7ead0; border-radius: 0;
-    clip-path: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px));
+    background: #4f6ef7; border: 1px solid #4f6ef7; color: #fff; border-bottom-right-radius: 4px;
   }
   .msg__bubble--ai {
-    background: rgba(16,28,46,0.8); border: 1px solid rgba(49,65,91,0.5); color: #f7ead0; border-radius: 0;
-    clip-path: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px));
+    background: #fff; border: 1px solid #e6e8ee; color: #1d2129; border-bottom-left-radius: 4px;
+    box-shadow: 0 1px 2px rgba(16,24,40,0.05);
   }
-  .msg__bubble--ai pre { background: #07111f; border: 1px solid rgba(125,216,199,0.15); padding: 12px; overflow-x: auto; font-size: 13px; margin: 8px 0; }
-  .msg__bubble--ai code { font-family: "Cascadia Code", Consolas, monospace; font-size: 13px; background: rgba(125,216,199,0.08); padding: 2px 5px; }
-  .msg__bubble--ai pre code { background: none; padding: 0; }
+  .msg__bubble--ai pre { background: #1d2027; color: #e9eaee; border-radius: 10px; padding: 12px; overflow-x: auto; font-size: 13px; margin: 8px 0; }
+  .msg__bubble--ai code { font-family: "Cascadia Code", Consolas, monospace; font-size: 13px; background: #f2f4f8; color: #3451d1; padding: 2px 5px; border-radius: 4px; }
+  .msg__bubble--ai pre code { background: none; color: inherit; padding: 0; }
   .msg__bubble--think {
-    background: rgba(216,166,87,0.06); border: 1px dashed rgba(216,166,87,0.2); color: #b6a989; font-size: 13px;
-    clip-path: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px));
+    background: #f7f8fa; border: 1px solid #e6e8ee; color: #535a68; font-size: 13px;
+    border-top-left-radius: 4px;
   }
-  .think-label { font-weight: 600; color: #d8a657; font-size: 12px; margin-bottom: 6px; }
-  .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid rgba(125,216,199,0.1); font-size: 12px; color: #b6a989; }
+  .think-label { font-weight: 600; color: #8b92a1; font-size: 12px; margin-bottom: 6px; }
+  .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e6e8ee; font-size: 12px; color: #8b92a1; }
 </style>
 </head>
 <body>
@@ -984,6 +1235,9 @@ const removeClassify = (item: menuObject) => {
           timeCount.value = 0
           currentIndex.value = 0
           allText.splice(0, allText.length)
+          resetBranches()
+          streamingNodeId.value = ''
+          responce = ''
         }
         showMessage(CONSTATNS.MESSAGES.DELETE_SUCCESS, 'success')
         getClassInformation(nickAll.nicknameId)
@@ -998,11 +1252,105 @@ const setHoveredIndex = <T extends number | null>(index: T) => {
   hoveredIndex.value = index
 }
 
+// 用指定叶子节点重建当前展示，并保持视口锚定
+const renderBranchView = (leafId: string, anchorTurnIndex = 0) => {
+  const container = chatContainer.value
+  const anchorEl = container?.querySelector(
+    `[data-turn="${anchorTurnIndex}"]`
+  ) as HTMLElement | null
+  const beforeTop = anchorEl ? anchorEl.getBoundingClientRect().top : 0
+
+  isAnchoring.value = true
+  const items = buildAllText(pathTo(leafId))
+  allText.splice(0, allText.length, ...items)
+  timeCount.value = items.length
+  editIndex.value = -1
+
+  nextTick(() => {
+    if (container) {
+      const nextEl = container.querySelector(
+        `[data-turn="${anchorTurnIndex}"]`
+      ) as HTMLElement | null
+      if (nextEl) {
+        const previousBehavior = container.style.scrollBehavior
+        container.style.scrollBehavior = 'auto'
+        if (anchorEl) {
+          container.scrollTop += nextEl.getBoundingClientRect().top - beforeTop
+        } else {
+          container.scrollTop = container.scrollHeight
+        }
+        container.style.scrollBehavior = previousBehavior
+      }
+    }
+    copyCode('.code-block-header__copy')
+    requestAnimationFrame(() => {
+      isAnchoring.value = false
+    })
+  })
+}
+
+// 版本翻页器：切换到同一轮的兄弟分支，并定位到同一轮次
+const switchTurnVersion = (turnIndex: number, role: 'user' | 'assistant', delta: number) => {
+  if (isAnswering.value) {
+    showMessage(CONSTATNS.MESSAGES.ANSWERING, 'warning')
+    return
+  }
+  const node = viewPath.value[turnIndex * 2 + (role === 'assistant' ? 1 : 0)]
+  if (!node) return
+  const siblings = getSiblings(node)
+  if (siblings.length < 2) return
+  const current = versionOf(node).index
+  const nextIndex = Math.min(siblings.length - 1, Math.max(0, current + delta))
+  if (nextIndex === current) return
+
+  const leaf = deepestLeaf(siblings[nextIndex])
+  commitActiveLeaf(leaf.id)
+  renderBranchView(leaf.id, turnIndex)
+  // 活动端点变化后同步服务端的线性历史
+  saveMessage()
+}
+
+// 重新生成某一轮的 AI 回答，产生新的兄弟版本
+const regenerate = (turnIndex: number) => {
+  if (isAnswering.value) {
+    showMessage(CONSTATNS.MESSAGES.ANSWERING, 'warning')
+    return
+  }
+  const userNode = viewPath.value[turnIndex * 2]
+  if (!userNode || userNode.role !== 'user') return
+
+  const isDeepSeek = currentModel.value == CONSTATNS.MODELS.DEEPSEEK_V4
+  const assistantNode = addNode({
+    parentId: userNode.id,
+    role: 'assistant',
+    adminContent: { adminText: '', isShow: true },
+    thinkContent:
+      isDeepSeek && apiModuleId.value == CONSTATNS.MODELS.REASONER_MODULE
+        ? { thinkText: '', status: '1', isShow: true, isOpen: false }
+        : null,
+    status: 'streaming'
+  })
+  commitActiveLeaf(assistantNode.id)
+
+  const items = buildAllText(pathTo(assistantNode.id))
+  allText.splice(0, allText.length, ...items)
+  runTurn(turnIndex, userNode, assistantNode)
+}
+
 // 点击编辑
 const editChat = (index: number, text: string) => {
+  if (isAnswering.value) {
+    showMessage(CONSTATNS.MESSAGES.ANSWERING, 'warning')
+    return
+  }
   editIndex.value = index
   editText.value = text
   hoveredIndex.value = null
+  nextTick(() => {
+    const textarea = document.querySelector('.chat-edit-textarea') as HTMLTextAreaElement | null
+    textarea?.focus()
+    textarea?.setSelectionRange(textarea.value.length, textarea.value.length)
+  })
 }
 
 // 取消编辑
@@ -1010,10 +1358,62 @@ const editCancle = () => {
   editIndex.value = -1
 }
 
-//  提交修改的用户内容
+// 编辑框回车提交（输入法组合输入时忽略）
+const handleEditKeydown = (event: KeyboardEvent) => {
+  if (event.isComposing) return
+  event.preventDefault()
+  editSubmit()
+}
+
+// 提交修改的用户内容：创建新的用户版本并重新生成
 const editSubmit = () => {
+  if (isAnswering.value) {
+    showMessage(CONSTATNS.MESSAGES.ANSWERING, 'warning')
+    return
+  }
+  const index = editIndex.value
+  const nextText = editText.value.trim()
+  if (index < 0) return
+  if (!nextText) {
+    showMessage(CONSTATNS.MESSAGES.INPUT_REQUIRED, 'warning')
+    return
+  }
+
+  const oldUser = viewPath.value[index * 2]
+  if (!oldUser || oldUser.role !== 'user') {
+    editIndex.value = -1
+    return
+  }
   editIndex.value = -1
-  sendTxt(editText.value)
+  if (nextText === oldUser.content) return
+
+  // 保留原消息附带的文件上下文
+  const suffix = oldUser.apiContent.startsWith(oldUser.content)
+    ? oldUser.apiContent.slice(oldUser.content.length)
+    : ''
+  const isDeepSeek = currentModel.value == CONSTATNS.MODELS.DEEPSEEK_V4
+  const userNode = addNode({
+    parentId: oldUser.parentId,
+    role: 'user',
+    content: nextText,
+    apiContent: nextText + suffix,
+    status: 'done'
+  })
+  const assistantNode = addNode({
+    parentId: userNode.id,
+    role: 'assistant',
+    adminContent: { adminText: '', isShow: true },
+    thinkContent:
+      isDeepSeek && apiModuleId.value == CONSTATNS.MODELS.REASONER_MODULE
+        ? { thinkText: '', status: '1', isShow: true, isOpen: false }
+        : null,
+    status: 'streaming'
+  })
+  commitActiveLeaf(assistantNode.id)
+
+  const items = buildAllText(pathTo(assistantNode.id))
+  allText.splice(0, allText.length, ...items)
+  runTurn(index, userNode, assistantNode)
 }
 
 // 复制用户内容
@@ -1021,8 +1421,47 @@ const copyDocument = () => {
   copyCode('.copyDocument')
 }
 
+// 写入剪贴板（优先使用异步 API，非安全上下文回退到 execCommand）
+const writeClipboard = async (text: string) => {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text)
+    } else {
+      const textarea = document.createElement('textarea')
+      textarea.value = text
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      const copied = document.execCommand('copy')
+      document.body.removeChild(textarea)
+      if (!copied) throw new Error('copy failed')
+    }
+    showMessage(CONSTATNS.MESSAGES.COPY_SUCCESS, 'success')
+  } catch {
+    showMessage(CONSTATNS.MESSAGES.COPY_FAILED, 'error')
+  }
+}
+
+// 复制 AI 回答：优先复制原始 Markdown，旧数据只有 HTML 时转为纯文本
+const copyAnswer = (index: number) => {
+  const assistantNode = viewPath.value[index * 2 + 1]
+  let text = assistantNode?.raw || allText[index]?.adminContent.adminText || ''
+  if (!assistantNode?.raw && /<\/?[a-z][^>]*>/i.test(text)) {
+    const wrapper = document.createElement('div')
+    wrapper.innerHTML = text
+    text = wrapper.textContent || ''
+  }
+  text = text.trim()
+  if (!text) {
+    showMessage(CONSTATNS.MESSAGES.COPY_FAILED, 'error')
+    return
+  }
+  writeClipboard(text)
+}
+
 const toggleDeepThinking = () => {
-  if (currentModel.value == CONSTATNS.MODELS.DEEPSEEK_V3) {
+  if (currentModel.value == CONSTATNS.MODELS.DEEPSEEK_V4) {
     isDeepThinking.value = !isDeepThinking.value
     apiModuleId.value = isDeepThinking.value
       ? CONSTATNS.MODELS.REASONER_MODULE
@@ -1030,16 +1469,6 @@ const toggleDeepThinking = () => {
     return
   }
   showMessage(CONSTATNS.MESSAGES.REASONER_ONLY, 'warning')
-}
-
-const thinkStatus = (item: allInstall) => {
-  if (item.thinkContent?.status == '1') {
-    return '思考中...'
-  } else if (item.thinkContent?.status == '2') {
-    return '思考已停止'
-  } else if (item.thinkContent?.status == '3') {
-    return '已思考完毕'
-  }
 }
 
 const goTocustomerService = () => {
@@ -1176,15 +1605,23 @@ const openUserProfile = () => {
         @update:nickname="editAll.nickname = $event"
       />
       <!-- 聊天区域 -->
-      <div
-        class="pixel-chat-wrap max-w-4xl mx-auto px-4 py-6 h-[calc(100vh-180px)] flex flex-col min-w-0 w-full"
-      >
+      <div class="pixel-chat-wrap">
         <div
           class="flex-1 overflow-y-auto overflow-x-hidden pr-4 pb-4 chat-wrapper min-w-0"
           ref="chatContainer"
           :class="isStopText ? 'wrapper' : ''"
         >
-          <template v-for="(item, index) in allText" :key="index">
+          <div v-if="!allText.length" class="chat-empty">
+            <div class="chat-empty-icon"><i class="fas fa-comments"></i></div>
+            <p class="chat-empty-title">开始一段新的冒险</p>
+            <p class="chat-empty-desc">发送你的第一个问题，或从左侧选择已有角色继续对话</p>
+          </div>
+          <div
+            v-for="(item, index) in allText"
+            :key="branchTurnKeys[index] ?? index"
+            class="chat-turn"
+            :data-turn="index"
+          >
             <!-- 编辑模式：保留在父组件，直接操作 editText ref -->
             <div class="flex justify-end relative" v-if="editIndex == index">
               <div class="chat-edit">
@@ -1192,6 +1629,8 @@ const openUserProfile = () => {
                   name="content"
                   class="chat-edit-textarea text-sm"
                   v-model="editText"
+                  @keydown.enter.exact="handleEditKeydown"
+                  @keydown.esc="editCancle"
                 ></textarea>
                 <div class="chat-edit-execute">
                   <button
@@ -1205,7 +1644,7 @@ const openUserProfile = () => {
                     type="button"
                     :disabled="!editText || isAnswering"
                     :class="editText && !isAnswering ? '' : 'area-disabled'"
-                    class="ml-2 pixel-btn pixel-btn-primary px-3 py-1 text-sm cursor-pointer"
+                    class="pixel-btn pixel-btn-primary px-3 py-1 text-sm cursor-pointer"
                     @click="editSubmit"
                   >
                     发送
@@ -1222,21 +1661,29 @@ const openUserProfile = () => {
             </div>
 
             <ChatMessageItem
-              v-else
               :item="item"
               :index="index"
+              :editing="editIndex == index"
               :nick-img="nickAll.nickImg"
               :ai-avatar-url="aiAvatarUrl"
               :hovered-index="hoveredIndex"
               :is-answering="isAnswering"
               :speaking-index="speakingIndex"
+              :user-version="turnMeta[index]?.user ?? { index: 0, total: 0 }"
+              :assistant-version="turnMeta[index]?.assistant ?? { index: 0, total: 0 }"
               @set-hovered="setHoveredIndex"
               @edit-chat="editChat"
               @copy-document="copyDocument"
+              @copy-answer="copyAnswer(index)"
               @speak="speak"
               @toggle-think="item => (item.thinkContent!.isOpen = !item.thinkContent!.isOpen)"
+              @switch-version="
+                (role: 'user' | 'assistant', delta: number) => switchTurnVersion(index, role, delta)
+              "
+              @regenerate="regenerate(index)"
+              @open-search-sources="openSearchSources"
             />
-          </template>
+          </div>
         </div>
         <ChatInput
           v-model:content-text="contentText"
@@ -1244,10 +1691,13 @@ const openUserProfile = () => {
           :is-answering="isAnswering"
           :is-stop-text="isStopText"
           :is-deep-thinking="isDeepThinking"
+          :web-search="isWebSearch"
+          :web-search-disabled="currentModel !== CONSTATNS.MODELS.DEEPSEEK_V4"
           :is-disabled="isDisabled"
           @send="sendTxt"
           @stop-export="stopExport"
           @toggle-deep-thinking="toggleDeepThinking"
+          @toggle-web-search="isWebSearch = !isWebSearch"
           @parse-file-input="parseFileInput"
           @clear-file-text="clearFileText"
           @open-url="openUrl"
@@ -1271,1256 +1721,475 @@ const openUserProfile = () => {
       @cite-template="cite"
       @page-change="handleCurrentChange"
     />
+
+    <!-- 联网资料抽屉 -->
+    <el-drawer
+      v-model="searchDrawerVisible"
+      direction="rtl"
+      size="min(520px, 94vw)"
+      :with-header="false"
+      class="search-source-drawer"
+      append-to-body
+    >
+      <div class="source-drawer">
+        <header class="source-drawer-head">
+          <div class="source-drawer-icon">
+            <i class="fas fa-globe"></i>
+          </div>
+          <div class="source-drawer-titles">
+            <h3>联网资料</h3>
+            <p>共 {{ searchDrawerResults.length }} 条 · 点击卡片查看原文</p>
+          </div>
+          <button
+            type="button"
+            class="source-drawer-close cursor-pointer"
+            aria-label="关闭联网资料"
+            @click="searchDrawerVisible = false"
+          >
+            <i class="fas fa-times"></i>
+          </button>
+        </header>
+
+        <div class="source-drawer-body">
+          <a
+            v-for="(source, sourceIndex) in searchDrawerResults"
+            :key="(source.url || source.title || 'source') + sourceIndex"
+            class="source-card"
+            :class="{ 'source-card--active': searchDrawerFocus === sourceIndex }"
+            :data-source-index="sourceIndex"
+            :href="source.url"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <div class="source-card-top">
+              <span class="source-card-index">{{ sourceIndex + 1 }}</span>
+              <span class="source-card-favicon">
+                <i class="fas fa-globe"></i>
+                <img
+                  v-if="source.site_icon"
+                  :src="source.site_icon"
+                  alt=""
+                  loading="lazy"
+                  referrerpolicy="no-referrer"
+                  @error="handleSourceIconError"
+                />
+              </span>
+              <span class="source-card-meta">
+                <span class="source-card-site">{{ source.site_name || '网页' }}</span>
+                <span v-if="formatSourceDate(source.date)" class="source-card-date">
+                  {{ formatSourceDate(source.date) }}
+                </span>
+              </span>
+              <i class="fas fa-arrow-up-right-from-square source-card-link-icon"></i>
+            </div>
+            <h4 class="source-card-title">{{ source.title || source.url }}</h4>
+            <p class="source-card-summary">{{ source.summary || source.snippet || '暂无摘要' }}</p>
+            <p class="source-card-url">{{ source.url }}</p>
+          </a>
+
+          <div v-if="!searchDrawerResults.length" class="source-drawer-empty">
+            <i class="fas fa-inbox"></i>
+            <p>暂无可展示的资料</p>
+          </div>
+        </div>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
 <style lang="scss" scoped>
-@use '@/styles/pixel-theme' as *;
-
 .pixel-page {
-  color: $pixel-text;
-  background:
-    radial-gradient(ellipse at 20% 80%, rgba($neon-magenta, 0.15) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 20%, rgba($neon-cyan, 0.15) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 50%, rgba($neon-purple, 0.1) 0%, transparent 70%),
-    linear-gradient(180deg, #0a0a12 0%, #12121f 50%, #0a0a12 100%);
-  font-family: ui-sans-serif, 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
-  overflow-x: hidden;
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* 浅色模式下加深画布、强化分割线，避免整页过白 */
+:global(html:not(.dark)) .pixel-page {
+  --bg: #edf0f5;
+  --surface-2: #f4f6fa;
+  --surface-3: #e8ecf3;
+  --surface-hover: #eef2f8;
+  --border: #dfe4ed;
+  --border-strong: #cbd3e0;
+  --text-2: #4a5262;
+  --text-3: #78808f;
 }
 
 .pixel-main {
-  width: calc(100% - $sidebar-w);
-  max-width: calc(100% - $sidebar-w);
-  margin-left: $sidebar-w;
-  box-sizing: border-box;
-}
-
-.pixel-sidebar {
-  @include neon-pixel-panel;
-
-  margin: 0;
+  margin-left: var(--sidebar-w);
   height: 100vh;
-  width: $sidebar-w;
-  max-width: $sidebar-w;
-  box-sizing: border-box;
-  border-radius: 0;
-  border-top: none;
-  border-bottom: none;
-  border-left: none;
-  background: rgba(13, 22, 36, 0.96);
-  box-shadow:
-    4px 0 30px rgba(0, 0, 0, 0.4),
-    inset -3px 0 0 rgba($neon-cyan, 0.05);
-  clip-path: none;
-}
-
-.pixel-sidebar-head {
-  border-bottom: 2px dashed rgba($neon-cyan, 0.2);
-}
-
-.pixel-icon-tile {
-  background: rgba($neon-cyan, 0.1);
-  border: 2px solid $pixel-border;
-  border-radius: 0;
-  box-shadow:
-    0 0 10px rgba($neon-cyan, 0.3),
-    inset 1px 1px 0 rgba(255, 255, 255, 0.05);
-  transition:
-    transform 0.1s ease,
-    box-shadow 0.08s ease,
-    filter 0.1s ease;
-  clip-path: polygon(
-    0 4px,
-    4px 4px,
-    4px 0,
-    calc(100% - 4px) 0,
-    calc(100% - 4px) 4px,
-    100% 4px,
-    100% calc(100% - 4px),
-    calc(100% - 4px) calc(100% - 4px),
-    calc(100% - 4px) 100%,
-    4px 100%,
-    4px calc(100% - 4px),
-    0 calc(100% - 4px)
-  );
-
-  &:hover {
-    transform: translateY(-1px);
-    filter: brightness(1.1);
-    box-shadow: 0 0 15px rgba($neon-cyan, 0.5);
-  }
-
-  &:active {
-    transform: translate(1px, 2px);
-    filter: brightness(0.9);
-    box-shadow:
-      inset 2px 2px 4px rgba(0, 0, 0, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1),
-      1px 1px 0 rgba(0, 0, 0, 0.2);
-  }
-}
-
-.pixel-icon-accent {
-  color: $neon-cyan;
-  filter: drop-shadow(0 0 5px $neon-cyan);
-}
-
-.pixel-text-muted {
-  color: $pixel-text-muted;
-}
-
-.pixel-ink {
-  color: $pixel-text;
-}
-
-.pixel-gold {
-  color: $neon-magenta;
-}
-
-.pixel-danger {
-  color: #c97b7b;
-}
-
-.pixel-btn {
-  border: 2px solid $neon-cyan;
-  font-weight: 600;
-  font-size: 13px;
-  letter-spacing: 0.02em;
-  background: rgba($pixel-bg, 0.8);
-  backdrop-filter: blur(10px);
-  box-shadow:
-    0 0 10px rgba($neon-cyan, 0.5),
-    0 0 20px rgba($neon-cyan, 0.3),
-    0 0 40px rgba($neon-cyan, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
-  text-shadow: 0 0 10px $neon-cyan;
-  clip-path: polygon(
-    0 4px,
-    4px 4px,
-    4px 0,
-    calc(100% - 4px) 0,
-    calc(100% - 4px) 4px,
-    100% 4px,
-    100% calc(100% - 4px),
-    calc(100% - 4px) calc(100% - 4px),
-    calc(100% - 4px) 100%,
-    4px 100%,
-    4px calc(100% - 4px),
-    0 calc(100% - 4px)
-  );
-
-  @include pixel-press-btn;
-
-  &:hover:not(:disabled) {
-    background: rgba($neon-cyan, 0.2);
-    border-color: $neon-cyan-light;
-    transform: translateY(-2px);
-    box-shadow:
-      0 0 15px rgba($neon-cyan, 0.7),
-      0 0 30px rgba($neon-cyan, 0.5),
-      0 0 60px rgba($neon-cyan, 0.3),
-      0 5px 20px rgba($neon-cyan, 0.4);
-  }
-}
-
-.pixel-btn-primary {
-  background: $neon-purple-dark;
-  border-color: $neon-purple;
-  color: #fff;
-  text-shadow: 0 0 10px $neon-purple;
-  box-shadow:
-    0 0 10px rgba($neon-purple, 0.5),
-    0 0 20px rgba($neon-purple, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
-
-  &:hover:not(:disabled) {
-    background: #47537b;
-    border-color: #7c8cbd;
-    box-shadow:
-      0 0 15px rgba($neon-purple, 0.7),
-      0 0 30px rgba($neon-purple, 0.5),
-      0 5px 20px rgba($neon-purple, 0.4);
-  }
-}
-
-.pixel-btn-secondary {
-  background: $neon-magenta-dark;
-  border-color: $neon-magenta;
-  color: #fff;
-  text-shadow: 0 0 10px $neon-magenta;
-  box-shadow:
-    0 0 10px rgba($neon-magenta, 0.5),
-    0 0 20px rgba($neon-magenta, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
-
-  &:hover:not(:disabled) {
-    background: #a3763e;
-    border-color: $neon-magenta-light;
-    box-shadow:
-      0 0 15px rgba($neon-magenta, 0.7),
-      0 0 30px rgba($neon-magenta, 0.5),
-      0 5px 20px rgba($neon-magenta, 0.4);
-  }
-}
-
-.pixel-btn-ghost {
-  background: rgba($pixel-bg, 0.6);
-  border-color: $pixel-border;
-  color: $pixel-text;
-  text-shadow: none;
-  box-shadow: none;
-
-  &:hover:not(:disabled) {
-    background: rgba($neon-cyan, 0.15);
-    border-color: $neon-cyan;
-    box-shadow: 0 0 15px rgba($neon-cyan, 0.3);
-    transform: translateY(-2px);
-  }
-}
-
-.pixel-btn-send:disabled {
-  opacity: 0.4;
-  filter: grayscale(0.3);
-}
-
-.pixel-nav {
-  margin: 12px 16px 0;
-  background: $pixel-dialog-bg;
-  border: 2px solid $pixel-border;
-  box-shadow:
-    0 0 30px rgba($neon-cyan, 0.15),
-    0 0 60px rgba($neon-magenta, 0.1);
-  max-width: calc(100% - 32px);
-  box-sizing: border-box;
-}
-
-.pixel-title {
-  font-family: myFirstFont, 'VT323', ui-monospace, monospace;
-  font-weight: normal;
-  color: #fff;
-  letter-spacing: 0.04em;
-  text-shadow:
-    0 0 10px $neon-cyan,
-    0 0 20px $neon-cyan;
-}
-
-.pixel-nav-user {
-  color: $pixel-text;
-  font-weight: 600;
-  max-width: 8rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.pixel-user-trigger {
-  border: 2px solid transparent;
-  clip-path: polygon(
-    0 4px,
-    4px 4px,
-    4px 0,
-    calc(100% - 4px) 0,
-    calc(100% - 4px) 4px,
-    100% 4px,
-    100% calc(100% - 4px),
-    calc(100% - 4px) calc(100% - 4px),
-    calc(100% - 4px) 100%,
-    4px 100%,
-    4px calc(100% - 4px),
-    0 calc(100% - 4px)
-  );
-  transition:
-    transform 0.07s ease-out,
-    box-shadow 0.07s ease-out,
-    background 0.15s ease,
-    border-color 0.15s ease;
-
-  &:hover {
-    background: rgba($neon-cyan, 0.1);
-    border-color: rgba($neon-cyan, 0.4);
-    box-shadow: 0 0 10px rgba($neon-cyan, 0.2);
-  }
-
-  &:active {
-    transform: translate(1px, 2px);
-    background: rgba($neon-cyan, 0.15);
-    box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.2);
-  }
-}
-
-.pixel-chip {
-  background: rgba($neon-cyan, 0.1);
-  border: 2px solid rgba($neon-cyan, 0.4);
-  backdrop-filter: blur(10px);
-  box-shadow:
-    0 0 10px rgba($neon-cyan, 0.2),
-    inset 1px 1px 0 rgba(255, 255, 255, 0.05);
-  clip-path: polygon(
-    0 3px,
-    3px 3px,
-    3px 0,
-    calc(100% - 3px) 0,
-    calc(100% - 3px) 3px,
-    100% 3px,
-    100% calc(100% - 3px),
-    calc(100% - 3px) calc(100% - 3px),
-    calc(100% - 3px) 100%,
-    3px 100%,
-    3px calc(100% - 3px),
-    0 calc(100% - 3px)
-  );
-
-  @include pixel-press-btn;
-}
-
-.pixel-chip-label {
-  color: $pixel-text;
-  font-weight: 600;
-}
-
-.pixel-chip--on {
-  background: rgba($neon-cyan, 0.25);
-  border-color: $neon-cyan;
-  box-shadow: 0 0 15px rgba($neon-cyan, 0.4);
-  color: $neon-cyan-light;
-}
-
-.pixel-dropdown {
-  background: $pixel-dialog-bg;
-  border: 2px solid $pixel-border;
-  box-shadow:
-    0 0 30px rgba($neon-cyan, 0.3),
-    0 0 60px rgba($neon-magenta, 0.2),
-    0 10px 40px rgba(0, 0, 0, 0.6);
-  padding: 4px 0;
-  z-index: 100;
-}
-
-.pixel-dropdown-divider {
-  border-color: rgba($neon-cyan, 0.15);
-}
-
-.pixel-dropdown-item {
-  color: $pixel-text;
-  background: transparent;
-  border: none;
-  transition:
-    transform 0.07s ease-out,
-    box-shadow 0.07s ease-out,
-    filter 0.07s ease-out,
-    background 0.12s ease;
-
-  &:hover {
-    background: rgba($neon-cyan, 0.15);
-  }
-
-  &:active {
-    transform: translate(1px, 2px);
-
-    @include pixel-press-shadow;
-
-    filter: brightness(0.94);
-  }
-}
-
-.pixel-dropdown-item--on {
-  background: rgba($neon-cyan, 0.22);
-  font-weight: 600;
-  color: $neon-cyan-light;
-}
-
-.pixel-menu-link {
-  color: $pixel-text;
-  text-decoration: none;
-  transition:
-    transform 0.07s ease-out,
-    box-shadow 0.07s ease-out,
-    background 0.15s ease;
-
-  &:hover {
-    background: rgba($neon-cyan, 0.12);
-  }
-
-  &:active {
-    transform: translate(1px, 2px);
-
-    @include pixel-press-shadow;
-
-    background: rgba($neon-cyan, 0.18);
-  }
-}
-
-.pixel-menu-danger {
-  color: #c97b7b;
-}
-
-.pixel-hr {
-  border: none;
-  border-top: 2px dashed rgba($neon-cyan, 0.15);
-}
-
-.pixel-avatar {
-  border: 2px solid $neon-cyan;
-  box-shadow:
-    0 0 10px rgba($neon-cyan, 0.4),
-    0 0 20px rgba($neon-cyan, 0.2);
-  clip-path: polygon(
-    0 4px,
-    4px 4px,
-    4px 0,
-    calc(100% - 4px) 0,
-    calc(100% - 4px) 4px,
-    100% 4px,
-    100% calc(100% - 4px),
-    calc(100% - 4px) calc(100% - 4px),
-    calc(100% - 4px) 100%,
-    4px 100%,
-    4px calc(100% - 4px),
-    0 calc(100% - 4px)
-  );
-}
-
-.pixel-avatar-sm {
-  border: 2px solid $neon-cyan;
-  box-shadow: 0 0 8px rgba($neon-cyan, 0.4);
-  clip-path: polygon(
-    0 3px,
-    3px 3px,
-    3px 0,
-    calc(100% - 3px) 0,
-    calc(100% - 3px) 3px,
-    100% 3px,
-    100% calc(100% - 3px),
-    calc(100% - 3px) calc(100% - 3px),
-    calc(100% - 3px) 100%,
-    3px 100%,
-    3px calc(100% - 3px),
-    0 calc(100% - 3px)
-  );
-}
-
-.pixel-bubble-user {
-  background: linear-gradient(
-    180deg,
-    rgba($neon-purple, 0.4) 0%,
-    rgba($neon-purple, 0.2) 50%,
-    rgba($neon-purple, 0.1) 100%
-  );
-  color: #fff;
-  border: 2px solid $neon-purple;
-  backdrop-filter: blur(10px);
-  box-shadow:
-    0 0 15px rgba($neon-purple, 0.4),
-    0 0 30px rgba($neon-purple, 0.2),
-    inset 1px 1px 0 rgba(255, 255, 255, 0.1);
-  clip-path: polygon(
-    0 6px,
-    6px 6px,
-    6px 0,
-    calc(100% - 6px) 0,
-    calc(100% - 6px) 6px,
-    100% 6px,
-    100% calc(100% - 6px),
-    calc(100% - 6px) calc(100% - 6px),
-    calc(100% - 6px) 100%,
-    6px 100%,
-    6px calc(100% - 6px),
-    0 calc(100% - 6px)
-  );
-  max-width: 100%;
-  box-sizing: border-box;
-  overflow-x: auto;
-}
-
-.pixel-bubble-ai {
-  background: linear-gradient(
-    180deg,
-    rgba($neon-cyan, 0.2) 0%,
-    rgba($neon-cyan, 0.1) 50%,
-    rgba($neon-cyan, 0.05) 100%
-  );
-  color: $pixel-text;
-  border: 2px solid rgba($neon-cyan, 0.4);
-  backdrop-filter: blur(10px);
-  box-shadow:
-    0 0 15px rgba($neon-cyan, 0.3),
-    0 0 30px rgba($neon-cyan, 0.15),
-    inset 2px 2px 0 rgba(255, 255, 255, 0.05);
-  clip-path: polygon(
-    0 6px,
-    6px 6px,
-    6px 0,
-    calc(100% - 6px) 0,
-    calc(100% - 6px) 6px,
-    100% 6px,
-    100% calc(100% - 6px),
-    calc(100% - 6px) calc(100% - 6px),
-    calc(100% - 6px) 100%,
-    6px 100%,
-    6px calc(100% - 6px),
-    0 calc(100% - 6px)
-  );
-  max-width: 100%;
-  box-sizing: border-box;
-  overflow-x: auto;
-}
-
-.pixel-think-toggle {
-  background: rgba($neon-magenta, 0.1);
-  border: 2px dashed rgba($neon-magenta, 0.4);
-  color: $pixel-text;
-  transition:
-    transform 0.07s ease-out,
-    box-shadow 0.07s ease-out,
-    background 0.15s ease,
-    filter 0.07s ease-out;
-
-  &:hover {
-    background: rgba($neon-magenta, 0.2);
-    box-shadow: 0 0 10px rgba($neon-magenta, 0.2);
-  }
-
-  &:active {
-    transform: translate(1px, 2px);
-
-    @include pixel-press-shadow;
-
-    filter: brightness(0.95);
-    background: rgba($neon-magenta, 0.25);
-  }
-}
-
-.pixel-think-body {
-  color: $pixel-text-muted;
-}
-
-/* 朗读按钮 */
-.pixel-speech-row {
   display: flex;
-}
-
-.pixel-speech-btn {
-  background: rgba($neon-cyan, 0.08);
-  border: 2px solid rgba($neon-cyan, 0.25);
-  color: $pixel-text-muted;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 4px 12px;
-  letter-spacing: 0.03em;
-  clip-path: polygon(
-    0 3px,
-    3px 3px,
-    3px 0,
-    calc(100% - 3px) 0,
-    calc(100% - 3px) 3px,
-    100% 3px,
-    100% calc(100% - 3px),
-    calc(100% - 3px) calc(100% - 3px),
-    calc(100% - 3px) 100%,
-    3px 100%,
-    3px calc(100% - 3px),
-    0 calc(100% - 3px)
-  );
-  transition:
-    transform 0.07s ease-out,
-    background 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease,
-    box-shadow 0.15s ease;
-
-  &:hover {
-    background: rgba($neon-cyan, 0.18);
-    border-color: rgba($neon-cyan, 0.5);
-    color: $neon-cyan-light;
-    box-shadow: 0 0 10px rgba($neon-cyan, 0.2);
-  }
-
-  &:active {
-    transform: translate(1px, 2px);
-    box-shadow:
-      inset 2px 2px 4px rgba(0, 0, 0, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    filter: brightness(0.92);
-  }
-}
-
-.pixel-speech-btn--active {
-  background: rgba($neon-magenta, 0.2);
-  border-color: rgba($neon-magenta, 0.5);
-  color: $neon-magenta-light;
-  text-shadow: 0 0 8px rgba($neon-magenta, 0.3);
-  box-shadow: 0 0 12px rgba($neon-magenta, 0.25);
-
-  &:hover {
-    background: rgba($neon-magenta, 0.3);
-    border-color: $neon-magenta;
-    box-shadow: 0 0 15px rgba($neon-magenta, 0.35);
-  }
+  flex-direction: column;
+  min-width: 0;
+  background: var(--bg);
 }
 
 .pixel-chat-wrap {
-  padding-bottom: 8px;
-  box-sizing: border-box;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 16px 24px 22px;
+  display: flex;
+  flex-direction: column;
 }
 
-.pixel-input-panel {
-  @include neon-pixel-panel;
-
-  background: $pixel-dialog-bg;
-  max-width: 100%;
-  box-sizing: border-box;
+.chat-wrapper {
+  flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 100px;
+  padding-bottom: 8px;
+  overflow-anchor: none;
+  scroll-behavior: smooth;
 }
 
-.pixel-file-sep {
-  border-bottom: 2px dashed rgba($neon-cyan, 0.15);
+.chat-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 40px 20px;
+  text-align: center;
 }
 
-.pixel-file-card {
-  background: rgba($neon-cyan, 0.1);
-  border: 2px solid rgba($neon-cyan, 0.4);
-  backdrop-filter: blur(10px);
-  box-shadow:
-    0 0 10px rgba($neon-cyan, 0.2),
-    inset 1px 1px 0 rgba(255, 255, 255, 0.05);
-  clip-path: polygon(
-    0 3px,
-    3px 3px,
-    3px 0,
-    calc(100% - 3px) 0,
-    calc(100% - 3px) 3px,
-    100% 3px,
-    100% calc(100% - 3px),
-    calc(100% - 3px) calc(100% - 3px),
-    calc(100% - 3px) 100%,
-    3px 100%,
-    3px calc(100% - 3px),
-    0 calc(100% - 3px)
-  );
-  transition:
-    transform 0.12s ease,
-    box-shadow 0.08s ease,
-    filter 0.08s ease;
-
-  &:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 0 15px rgba($neon-cyan, 0.4);
-  }
-
-  &:active {
-    transform: translate(1px, 1px);
-
-    @include pixel-press-shadow;
-
-    filter: brightness(0.96);
-  }
+.chat-empty-icon {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 6px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--accent);
+  font-size: 22px;
+  box-shadow: var(--shadow-xs);
 }
 
-.pixel-icon-btn {
-  color: $pixel-text-muted;
-  background: none;
-  border: none;
-  padding: 4px;
-  transition:
-    transform 0.07s ease-out,
-    box-shadow 0.07s ease-out,
-    color 0.15s ease;
-
-  &:hover {
-    color: #c97b7b;
-  }
-
-  &:active {
-    transform: translate(1px, 2px);
-
-    @include pixel-press-shadow;
-
-    color: #c97b7b;
-  }
-}
-
-.pixel-tool-btn {
-  border: 2px solid transparent;
-  transition:
-    transform 0.07s ease-out,
-    box-shadow 0.07s ease-out,
-    background 0.12s ease,
-    border-color 0.12s ease;
-
-  &:hover {
-    background: rgba($neon-cyan, 0.12);
-    border-color: rgba($neon-cyan, 0.3);
-    box-shadow: 0 0 10px rgba($neon-cyan, 0.2);
-  }
-
-  &:active {
-    transform: translate(1px, 2px);
-    background: rgba($neon-cyan, 0.18);
-    box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.2);
-    border-color: rgba($neon-cyan, 0.3);
-  }
-}
-
-.pixel-textarea {
-  background: rgba(0, 0, 0, 0.4);
-  border: 2px solid rgba($neon-cyan, 0.3);
-  color: $pixel-text;
-  outline: none;
-  box-shadow:
-    inset 0 0 10px rgba(0, 0, 0, 0.3),
-    0 0 5px rgba($neon-cyan, 0.1);
-  clip-path: polygon(
-    0 3px,
-    3px 3px,
-    3px 0,
-    calc(100% - 3px) 0,
-    calc(100% - 3px) 3px,
-    100% 3px,
-    100% calc(100% - 3px),
-    calc(100% - 3px) calc(100% - 3px),
-    calc(100% - 3px) 100%,
-    3px 100%,
-    3px calc(100% - 3px),
-    0 calc(100% - 3px)
-  );
-
-  &:focus {
-    border-color: $neon-cyan;
-    box-shadow:
-      inset 0 0 10px rgba(0, 0, 0, 0.3),
-      0 0 15px rgba($neon-cyan, 0.4),
-      0 0 30px rgba($neon-cyan, 0.2);
-  }
-}
-
-/* 个人信息弹窗 */
-.profile-modal__backdrop {
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(8px);
-}
-
-.profile-modal-enter-active {
-  transition: opacity 0.34s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.profile-modal-leave-active {
-  transition: opacity 0.26s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.profile-modal-enter-active .profile-modal__panel {
-  transition:
-    transform 0.38s cubic-bezier(0.34, 1.2, 0.64, 1),
-    opacity 0.34s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.profile-modal-leave-active .profile-modal__panel {
-  transition:
-    transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 0.24s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.profile-modal-enter-from,
-.profile-modal-leave-to {
-  opacity: 0;
-}
-
-.profile-modal-enter-from .profile-modal__panel,
-.profile-modal-leave-to .profile-modal__panel {
-  opacity: 0;
-  transform: translateY(14px) scale(0.96);
-}
-
-.profile-modal-enter-to .profile-modal__panel,
-.profile-modal-leave-from .profile-modal__panel {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-
-.pixel-profile-card {
-  background: $pixel-dialog-bg;
-  border: 2px solid $pixel-border;
-  box-shadow:
-    0 0 30px rgba($neon-cyan, 0.2),
-    0 0 60px rgba($neon-magenta, 0.15),
-    0 20px 50px rgba(0, 0, 0, 0.5);
-  clip-path: polygon(
-    0 8px,
-    8px 8px,
-    8px 0,
-    calc(100% - 8px) 0,
-    calc(100% - 8px) 8px,
-    100% 8px,
-    100% calc(100% - 8px),
-    calc(100% - 8px) calc(100% - 8px),
-    calc(100% - 8px) 100%,
-    8px 100%,
-    8px calc(100% - 8px),
-    0 calc(100% - 8px)
-  );
-}
-
-.pixel-profile-title {
-  font-family: myFirstFont, 'VT323', ui-monospace, monospace;
-  font-size: 1.35rem;
-  font-weight: normal;
-  color: #fff;
-  letter-spacing: 0.06em;
-  text-shadow: 0 0 10px $neon-cyan;
-}
-
-.pixel-profile-close {
-  border: 2px solid transparent;
-  color: $pixel-text-muted;
-  background: transparent;
-  transition:
-    transform 0.07s ease-out,
-    box-shadow 0.07s ease-out,
-    color 0.15s ease,
-    background 0.15s ease,
-    border-color 0.15s ease;
-
-  &:hover {
-    color: $pixel-text;
-    background: rgba($neon-cyan, 0.14);
-    border-color: rgba($neon-cyan, 0.3);
-  }
-
-  &:active {
-    transform: translate(1px, 2px);
-
-    @include pixel-press-shadow;
-
-    color: $pixel-text;
-  }
-}
-
-.pixel-profile-avatar-wrap {
-  cursor: pointer;
-}
-
-.pixel-profile-avatar {
-  border: 2px solid $neon-cyan;
-  box-shadow:
-    0 0 15px rgba($neon-cyan, 0.3),
-    0 0 30px rgba($neon-cyan, 0.1);
-  clip-path: polygon(
-    0 6px,
-    6px 6px,
-    6px 0,
-    calc(100% - 6px) 0,
-    calc(100% - 6px) 6px,
-    100% 6px,
-    100% calc(100% - 6px),
-    calc(100% - 6px) calc(100% - 6px),
-    calc(100% - 6px) 100%,
-    6px 100%,
-    6px calc(100% - 6px),
-    0 calc(100% - 6px)
-  );
-}
-
-.pixel-profile-avatar-shade {
-  background: rgba(42, 36, 56, 0.5);
-  transition: opacity 0.2s ease;
-}
-
-.pixel-label {
-  color: $pixel-text-muted;
+.chat-empty-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
   font-weight: 600;
 }
 
-.pixel-input {
-  background: rgba(0, 0, 0, 0.4);
-  border: 2px solid rgba($neon-cyan, 0.3);
-  color: $pixel-text;
-  outline: none;
-  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.3);
-
-  &:focus {
-    border-color: $neon-cyan;
-    box-shadow:
-      inset 2px 2px 0 rgba(0, 0, 0, 0.3),
-      0 0 10px rgba($neon-cyan, 0.3);
-  }
-}
-
-.pixel-readonly {
-  background: rgba($neon-cyan, 0.08);
-  border: 2px dashed rgba($neon-cyan, 0.25);
-  color: $pixel-text;
-}
-
-.pixel-list-text {
-  color: $pixel-text;
-}
-
-.pixel-list-item {
-  border: 2px solid transparent;
-  transition:
-    transform 0.07s ease-out,
-    box-shadow 0.07s ease-out,
-    background 0.15s ease,
-    border-color 0.15s ease;
-
-  &:hover {
-    background: rgba($neon-cyan, 0.1);
-    border-color: rgba($neon-cyan, 0.3);
-    box-shadow: 0 0 10px rgba($neon-cyan, 0.15);
-  }
-
-  &:active {
-    transform: translate(1px, 2px);
-    background: rgba($neon-cyan, 0.15);
-    box-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.2);
-  }
-}
-
-.pixel-list-item--active {
-  background: rgba($neon-cyan, 0.2);
-  border-color: rgba($neon-cyan, 0.4);
-  box-shadow: 0 0 15px rgba($neon-cyan, 0.25);
-}
-
-.load {
-  display: flex;
-  letter-spacing: 0.5px;
-  line-height: 24px;
-  color: $pixel-text-muted;
-}
-
-.load.active {
-  margin: 10px 0 0 10px;
-}
-
-.load p {
-  font-size: 14px;
-  color: $pixel-text-muted;
-  margin-left: 5px;
-}
-
-.loading {
-  animation: api-debug_load__hsrQ8 2s linear infinite;
-  border-right: 2px solid $neon-cyan;
-  border-top: 2px solid $neon-cyan;
-  content: '';
-  display: block;
-  height: 20px;
-  width: 20px;
-}
-
-:deep(.pre-code-box) {
-  margin-top: 10px;
-}
-
-:deep(.pre-code-header) {
-  align-items: center;
-  background: #1a1a2e;
-  color: $neon-cyan-light;
-  display: flex;
-  font-size: 12px;
-  height: 40px;
-  justify-content: space-between;
-  line-height: 40px;
-  padding: 0 1rem;
-  border: 1px solid rgba($neon-cyan, 0.3);
-  border-bottom: none;
-}
-
-:deep(.code-block-header__lang) {
-  font-size: 14px;
-  font-weight: bold;
-  color: $neon-cyan-light;
-}
-
-:deep(.code-block-header__actions) {
-  display: flex;
-  gap: 15px;
-}
-
-:deep(.code-block-header__copy),
-:deep(.code-block-header__download) {
-  cursor: pointer;
-  padding: 0 8px;
-  transition:
-    transform 0.07s ease-out,
-    box-shadow 0.07s ease-out,
-    background 0.2s ease,
-    filter 0.07s ease-out;
-  color: $pixel-text;
+.chat-empty-desc {
+  margin: 0;
+  color: var(--text-3);
   font-size: 13px;
+}
+
+.chat-turn {
   display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-:deep(.code-block-header__copy:hover),
-:deep(.code-block-header__download:hover) {
-  background: rgba($neon-cyan, 0.15);
-  color: $neon-cyan-light;
-}
-
-:deep(.code-block-header__copy:active),
-:deep(.code-block-header__download:active) {
-  transform: translate(1px, 2px);
-  box-shadow:
-    inset 2px 2px 4px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  filter: brightness(0.9);
-}
-
-:deep(.code-block-header__copy::before) {
-  content: '📋';
-  font-size: 14px;
-}
-
-:deep(.code-block-header__download::before) {
-  content: '⬇️';
-  font-size: 14px;
-}
-
-:deep(.pre-code code.hljs) {
-  padding: 15px;
-  font-size: 14px;
-  line-height: 1.6;
-  overflow-wrap: break-word;
-  white-space: pre-wrap;
-  word-break: normal;
-  background: #0d1624;
-  border: 1px solid rgba($neon-cyan, 0.3);
-  border-top: none;
-}
-
-:deep(.ai_detail table) {
-  border-collapse: collapse;
-}
-
-:deep(.ai_detail th) {
-  border: 1px solid $pixel-border;
-  background-color: $pixel-bg;
-  color: $pixel-text;
-  padding: 5px;
-}
-
-:deep(.ai_detail td) {
-  border: 1px solid $pixel-border;
-  padding: 10px;
-  color: $pixel-text-muted;
-}
-
-:deep(.ai_detail a) {
-  text-decoration: none;
-  cursor: auto;
-  color: $neon-cyan;
-}
-
-:deep(.ai-txt p) {
-  margin-bottom: 10px !important;
-}
-
-:deep(.ai-txt p:last-child) {
-  margin-bottom: 0 !important;
-}
-
-:deep(.ai-txt table) {
-  border-collapse: collapse;
-}
-
-:deep(.ai-txt th) {
-  border: 1px solid $pixel-border;
-  padding: 5px;
-  color: $pixel-text;
-}
-
-:deep(.ai-txt td) {
-  border: 1px solid $pixel-border;
-  padding: 10px;
-  color: $pixel-text-muted;
-}
-
-:deep(.ai-txt a) {
-  text-decoration: none;
-  cursor: auto;
-  color: $neon-cyan;
+  flex-direction: column;
+  flex-shrink: 0;
 }
 
 .wrapper {
   scroll-behavior: smooth;
 }
 
-/* 修改垂直滚动条 */
-.chat-wrapper::-webkit-scrollbar,
-.chat-edit-textarea::-webkit-scrollbar,
-.new-dialogue::-webkit-scrollbar {
-  width: 5px;
-}
-
-/* 修改滚动条滑块颜色 */
-.chat-wrapper::-webkit-scrollbar-thumb,
-.chat-edit-textarea::-webkit-scrollbar-thumb,
-.new-dialogue::-webkit-scrollbar-thumb {
-  background-color: transparent;
-  border-radius: 5px;
-  transition: all 1s;
-}
-
-.chat-wrapper:hover::-webkit-scrollbar-thumb,
-.chat-edit-textarea:hover::-webkit-scrollbar-thumb,
-.new-dialogue:hover::-webkit-scrollbar-thumb {
-  background-color: rgba($neon-cyan, 0.3);
-}
-
-.list-icon {
-  position: relative;
-  width: 30px;
-  height: 30px;
-  flex-shrink: 0;
-}
-
-.restrict {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  width: 185px;
-}
-
-.header {
-  font-size: 14px;
-  color: $pixel-text;
-  display: flex;
-  align-items: center;
-  padding-bottom: 14px;
-  user-select: none;
-}
-
-.header .profile {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  border: 2px solid $neon-cyan;
-  box-shadow: 0 0 10px rgba($neon-cyan, 0.3);
-}
-
-.header.effect {
-  padding-bottom: 0;
-  padding: 10px 5px;
-  transition: all 1s;
-  margin-top: 20px;
-}
-
-.header.effect:first-child {
-  margin-top: 0;
-}
-
-.header-right {
-  margin-left: 10px;
-}
-
-.area-disabled {
-  cursor: no-drop;
-}
-
-.group-util {
-  visibility: hidden;
-  display: flex;
-  justify-content: flex-end;
-  gap: 5px;
-  margin-top: 12px;
-  margin-right: 40px;
-
-  &.show {
-    visibility: visible;
-  }
-}
-
-.edit {
-  margin-right: 5px;
-}
-
-.edit,
-.copyDocument {
-  width: 30px;
-  height: 30px;
-  color: $pixel-text-muted;
-  border: 2px solid transparent;
-  transition:
-    transform 0.07s ease-out,
-    box-shadow 0.07s ease-out,
-    background 0.2s ease,
-    border-color 0.2s ease,
-    color 0.2s ease;
-}
-
-.edit:hover,
-.copyDocument:hover {
-  background-color: rgba($neon-cyan, 0.18);
-  border-color: rgba($neon-cyan, 0.4);
-  color: $neon-cyan-light;
-  cursor: pointer;
-  box-shadow: 0 0 10px rgba($neon-cyan, 0.2);
-}
-
 .chat-edit {
+  position: relative;
+  width: calc(100% - 90px);
   margin-right: 10px;
 }
 
-.chat-edit .chat-edit-textarea {
-  width: 500px;
-  max-width: 100%;
-  border: 2px solid rgba($neon-cyan, 0.4);
-  padding: 8px 20px;
-  height: 100px;
-  background: rgba(0, 0, 0, 0.4);
-  color: $pixel-text;
+.chat-edit-textarea {
+  display: block;
+  width: 100%;
+
+  /* 底部留出按钮的悬浮空间，避免文字被遮挡 */
+  padding: 12px 14px 44px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.6;
   outline: none;
-  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.3);
+  resize: none;
+  box-shadow: var(--shadow-xs);
+  transition:
+    border-color 0.18s var(--ease),
+    box-shadow 0.18s var(--ease);
 
   &:focus {
-    border-color: $neon-cyan;
-    box-shadow:
-      inset 2px 2px 0 rgba(0, 0, 0, 0.3),
-      0 0 15px rgba($neon-cyan, 0.3);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-ring);
   }
 }
 
 .chat-edit-execute {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
 }
 
-.think {
-  width: fit-content;
-  user-select: none;
+/* ===== 联网资料抽屉 ===== */
+.source-drawer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--surface);
+  color: var(--text);
 }
 
-.think-txt {
+.source-drawer-head {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.source-drawer-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--accent-ring);
+  border-radius: 11px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 15px;
+}
+
+.source-drawer-titles {
+  flex: 1;
+  min-width: 0;
+
+  h3 {
+    margin: 0;
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  p {
+    margin: 3px 0 0;
+    color: var(--text-3);
+    font-size: 12px;
+  }
+}
+
+.source-drawer-close {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 13px;
+  transition:
+    background 0.15s var(--ease),
+    border-color 0.15s var(--ease),
+    color 0.15s var(--ease);
+
+  &:hover {
+    border-color: var(--border);
+    background: var(--surface-hover);
+    color: var(--text);
+  }
+}
+
+.source-drawer-body {
+  flex: 1;
+  min-height: 0;
+  padding: 16px 18px 24px;
+  overflow-y: auto;
+}
+
+.source-card {
+  display: block;
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: inherit;
+  text-decoration: none;
+  transition:
+    background 0.15s var(--ease),
+    border-color 0.15s var(--ease),
+    box-shadow 0.15s var(--ease);
+
+  & + & {
+    margin-top: 10px;
+  }
+
+  &:hover {
+    border-color: var(--accent-ring);
+    background: var(--surface-2);
+    box-shadow: var(--shadow-xs);
+
+    .source-card-title,
+    .source-card-link-icon {
+      color: var(--accent);
+    }
+  }
+}
+
+.source-card--active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.source-card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.source-card-index {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.source-card-favicon {
   position: relative;
-  margin: 10px 0;
-}
-
-.think-txt .line {
-  border-left: 2px solid rgba($neon-magenta, 0.4);
-  height: calc(100% - 10px);
-  margin-top: 5px;
-  position: absolute;
-  top: 0;
-  left: 0;
-}
-
-.textarea-dialogue {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 16px;
+  height: 16px;
   overflow: hidden;
+  border-radius: 4px;
+  color: var(--text-3);
+  font-size: 10px;
+
+  img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--surface);
+    object-fit: contain;
+  }
 }
 
-.imgEdit input {
-  display: none;
+.source-card-meta {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--text-3);
+  font-size: 11px;
 }
 
-.text-word {
-  white-space: pre-wrap;
+.source-card-site {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.source-card-date::before {
+  margin-right: 6px;
+  content: '·';
+}
+
+.source-card-link-icon {
+  flex-shrink: 0;
+  color: var(--text-3);
+  font-size: 11px;
+  transition: color 0.15s var(--ease);
+}
+
+.source-card-title {
+  display: -webkit-box;
+  margin: 0 0 6px;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  transition: color 0.15s var(--ease);
+}
+
+.source-card-summary {
+  display: -webkit-box;
+  margin: 0 0 8px;
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: 12.5px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.source-card-url {
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: 11px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.source-drawer-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 80px 20px;
+  color: var(--text-3);
+  font-size: 13px;
+
+  i {
+    font-size: 24px;
+  }
+
+  p {
+    margin: 0;
+  }
+}
+
+@media (width <= 1024px) {
+  .pixel-chat-wrap {
+    padding: 12px 16px 18px;
+  }
+
+  .chat-edit {
+    width: min(100%, 560px);
+  }
+}
+
+@media (width <= 860px) {
+  .pixel-chat-wrap {
+    padding: 12px 12px 16px;
+  }
 }
 </style>

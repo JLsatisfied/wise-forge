@@ -35,7 +35,7 @@ const currentPage = computed({
 </script>
 
 <template>
-  <el-dialog class="template-list-dialog" v-model="visible" title="冒险副本">
+  <el-dialog class="template-list-dialog app-dialog" v-model="visible" title="冒险副本">
     <p class="subtitle">挑选适合你的冒险副本</p>
     <ul class="template-category">
       <li
@@ -51,7 +51,7 @@ const currentPage = computed({
     <ul class="prompt">
       <li v-for="item in templateList" :key="item.id">
         <div class="detail">
-          <div class="detail-icon">⚔️</div>
+          <div class="detail-icon"><i class="fas fa-layer-group"></i></div>
           <div class="detail-content">
             <p>
               <strong class="detail-title">{{ item.name }}</strong>
@@ -80,364 +80,243 @@ const currentPage = computed({
 
 <!-- el-dialog 内容会被 Teleport 到 body，必须用 .template-list-dialog 包裹所有选择器避免冲突 -->
 <style lang="scss">
-@use '@/styles/pixel-theme' as *;
-
 .template-list-dialog {
   width: 900px;
-  background: $pixel-dialog-bg;
-  border: 2px solid $pixel-border;
-  backdrop-filter: blur(20px);
-  clip-path: polygon(
-    0 8px,
-    8px 8px,
-    8px 0,
-    calc(100% - 8px) 0,
-    calc(100% - 8px) 8px,
-    100% 8px,
-    100% calc(100% - 8px),
-    calc(100% - 8px) calc(100% - 8px),
-    calc(100% - 8px) 100%,
-    8px 100%,
-    8px calc(100% - 8px),
-    0 calc(100% - 8px)
-  );
-  box-shadow:
-    0 0 30px rgba($neon-cyan, 0.3),
-    0 0 60px rgba($neon-magenta, 0.2),
-    0 25px 50px rgba(0, 0, 0, 0.5);
-
-  &.el-dialog {
-    background: $pixel-dialog-bg !important;
-  }
+  max-width: calc(100vw - 32px);
+  border-radius: var(--radius-lg);
 
   .el-dialog__body {
-    color: $pixel-text;
+    color: var(--text);
   }
 
   .el-dialog__title {
-    font-family: myFirstFont, 'VT323', ui-monospace, monospace;
-    font-weight: normal;
-    font-size: 1.5rem;
-    letter-spacing: 0.06em;
-    color: #fff;
-    text-shadow: 0 0 10px $neon-cyan;
-  }
-
-  .el-pagination button {
-    transition:
-      transform 0.07s ease-out,
-      filter 0.07s ease-out;
-    color: $pixel-text;
-    background: rgba($neon-cyan, 0.1);
-    border: 1px solid rgba($neon-cyan, 0.3);
-
-    &:active:not(:disabled) {
-      transform: translate(1px, 2px);
-      filter: brightness(0.9);
-    }
-
-    &:disabled {
-      color: $pixel-text-muted;
-      background: transparent;
-    }
-  }
-
-  .el-pagination {
-    margin-top: 30px;
-
-    --el-text-color-regular: #{$pixel-text};
-  }
-
-  .el-pager li {
-    color: $pixel-text-muted !important;
-    background: rgba($neon-cyan, 0.08);
-    border: 1px solid transparent;
-    min-width: 32px;
-    height: 32px;
-    line-height: 32px;
-    border-radius: 0 !important;
+    color: var(--text);
+    font-size: 18px;
     font-weight: 600;
-    transition: all 0.15s ease;
-    clip-path: polygon(
-      0 3px,
-      3px 3px,
-      3px 0,
-      calc(100% - 3px) 0,
-      calc(100% - 3px) 3px,
-      100% 3px,
-      100% calc(100% - 3px),
-      calc(100% - 3px) calc(100% - 3px),
-      calc(100% - 3px) 100%,
-      3px 100%,
-      3px calc(100% - 3px),
-      0 calc(100% - 3px)
-    );
-
-    &:hover {
-      color: $neon-cyan-light !important;
-      background: rgba($neon-cyan, 0.18);
-      border-color: rgba($neon-cyan, 0.4);
-    }
-  }
-
-  .el-pager li.is-active {
-    color: #fff !important;
-    font-weight: 700;
-    background: rgba($neon-cyan, 0.25);
-    border-color: $neon-cyan;
-    text-shadow: 0 0 8px $neon-cyan;
-    box-shadow: 0 0 12px rgba($neon-cyan, 0.4);
-  }
-
-  .el-pagination .btn-prev,
-  .el-pagination .btn-next {
-    color: $pixel-text !important;
-    background: rgba($neon-cyan, 0.1);
-    border: 1px solid rgba($neon-cyan, 0.2);
-    border-radius: 0 !important;
-    transition: all 0.15s ease;
-    clip-path: polygon(
-      0 3px,
-      3px 3px,
-      3px 0,
-      calc(100% - 3px) 0,
-      calc(100% - 3px) 3px,
-      100% 3px,
-      100% calc(100% - 3px),
-      calc(100% - 3px) calc(100% - 3px),
-      calc(100% - 3px) 100%,
-      3px 100%,
-      3px calc(100% - 3px),
-      0 calc(100% - 3px)
-    );
-
-    &:hover:not(:disabled) {
-      color: $neon-cyan-light !important;
-      background: rgba($neon-cyan, 0.22);
-      border-color: $neon-cyan;
-    }
-  }
-
-  .el-pagination .btn-prev:disabled,
-  .el-pagination .btn-next:disabled {
-    color: rgba($pixel-text-muted, 0.4) !important;
-    background: transparent;
-    border-color: transparent;
-  }
-
-  .el-pagination .el-input__wrapper {
-    border: 2px solid rgba($neon-cyan, 0.3);
-    color: $pixel-text;
-    box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.3);
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 0;
-    clip-path: polygon(
-      0 3px,
-      3px 3px,
-      3px 0,
-      calc(100% - 3px) 0,
-      calc(100% - 3px) 3px,
-      100% 3px,
-      100% calc(100% - 3px),
-      calc(100% - 3px) calc(100% - 3px),
-      calc(100% - 3px) 100%,
-      3px 100%,
-      3px calc(100% - 3px),
-      0 calc(100% - 3px)
-    );
-
-    &:hover {
-      border-color: $neon-cyan;
-    }
-  }
-
-  .el-pagination .el-input__inner {
-    color: $pixel-text;
-    text-align: center;
-  }
-
-  .el-input__wrapper {
-    border: 2px solid rgba($neon-cyan, 0.3);
-    color: $pixel-text;
-    box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.3);
-    background: rgba(0, 0, 0, 0.3);
+    letter-spacing: -0.01em;
   }
 
   .subtitle {
-    font-size: 12px;
+    margin: 0 0 16px;
+    color: var(--text-3);
+    font-size: 13px;
     font-weight: 400;
-    color: $pixel-text-muted;
-    margin-bottom: 5px;
+  }
+}
+
+.template-list-dialog .template-category {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.template-list-dialog .pixel-prompt-pill {
+  flex-shrink: 0;
+  height: 32px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    background-color 0.16s var(--ease),
+    border-color 0.16s var(--ease),
+    color 0.16s var(--ease);
+
+  &:hover {
+    background: var(--surface-3);
+    border-color: var(--border-strong);
+    color: var(--text);
+  }
+}
+
+.template-list-dialog .pixel-prompt-pill--active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.template-list-dialog .prompt {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 12px;
+  max-height: 48vh;
+  margin: 20px 0 0;
+  padding: 2px;
+  list-style: none;
+  overflow-y: auto;
+}
+
+.template-list-dialog .prompt > li {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+  transition:
+    border-color 0.18s var(--ease),
+    box-shadow 0.18s var(--ease),
+    transform 0.18s var(--ease);
+
+  &:hover {
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-1px);
+  }
+}
+
+.template-list-dialog .detail {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.template-list-dialog .detail-icon {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 13px;
+}
+
+.template-list-dialog .detail-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.template-list-dialog .detail-title {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.template-list-dialog .detail-content p {
+  margin: 0;
+}
+
+.template-list-dialog .detail-content .into {
+  display: -webkit-box;
+  margin-top: 5px;
+  height: 36px;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.template-list-dialog .action-use {
+  align-self: flex-end;
+  min-width: 76px;
+  height: 30px;
+  margin-top: 12px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  transition:
+    background-color 0.16s var(--ease),
+    border-color 0.16s var(--ease);
+
+  &:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+  }
+}
+
+.template-list-dialog .el-pagination {
+  margin-top: 20px;
+  justify-content: center;
+}
+
+.template-list-dialog .el-pagination .btn-prev,
+.template-list-dialog .el-pagination .btn-next {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: var(--surface-2);
+  color: var(--text-2);
+
+  &:hover:not(:disabled) {
+    color: var(--accent);
+    border-color: var(--accent-ring);
+    background: var(--accent-soft);
   }
 
-  .template-category {
-    padding: 0;
-    list-style: none;
-    display: flex;
-    flex-flow: row wrap;
-    column-gap: 32px;
-    row-gap: 15px;
+  &:disabled {
+    color: var(--text-3);
+    background: transparent;
+    border-color: var(--border);
+  }
+}
 
-    li {
-      flex-shrink: 0;
-      width: 80px;
-      height: 30px;
-      line-height: 26px;
-      text-align: center;
-      font-size: 12px;
-      cursor: pointer;
-      color: $pixel-text;
-      border: 2px solid rgba($neon-cyan, 0.4);
-      background: rgba($neon-cyan, 0.1);
-      backdrop-filter: blur(10px);
-      box-shadow: 0 0 10px rgba($neon-cyan, 0.2);
-      transition:
-        transform 0.07s ease-out,
-        box-shadow 0.07s ease-out,
-        filter 0.07s ease-out,
-        background 0.15s ease,
-        border-color 0.15s ease;
+.template-list-dialog .el-pagination .el-pager li {
+  min-width: 32px;
+  height: 32px;
+  line-height: 32px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-weight: 500;
 
-      &:active {
-        transform: translate(2px, 3px);
+  &:hover {
+    color: var(--accent);
+  }
+}
 
-        @include pixel-press-shadow;
+.template-list-dialog .el-pagination .el-pager li.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
 
-        filter: brightness(0.93);
-      }
-    }
+.template-list-dialog .el-pagination .el-input__wrapper {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  box-shadow: none;
+}
 
-    li.pixel-prompt-pill--active {
-      background: rgba($neon-cyan, 0.3);
-      border-color: $neon-cyan;
-      font-weight: 700;
-      color: #fff;
-      box-shadow: 0 0 15px rgba($neon-cyan, 0.5);
-    }
+.template-list-dialog .el-pagination .el-input__inner {
+  color: var(--text);
+  text-align: center;
+}
+
+@media (width <= 640px) {
+  .template-list-dialog {
+    width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px);
+    margin: 0 auto;
   }
 
-  .prompt {
-    padding: 0;
-    list-style: none;
-    display: flex;
-    column-gap: 41px;
-    row-gap: 25px;
-    overflow-y: auto;
-    margin-top: 30px;
-
-    li {
-      position: relative;
-      width: 262px;
-      box-sizing: border-box;
-      padding: 10px 11px;
-      cursor: pointer;
-      border: 2px solid rgba($neon-cyan, 0.3);
-      background: rgba(0, 0, 0, 0.4);
-      backdrop-filter: blur(10px);
-      box-shadow: 0 0 15px rgba($neon-cyan, 0.1);
-      clip-path: polygon(
-        0 4px,
-        4px 4px,
-        4px 0,
-        calc(100% - 4px) 0,
-        calc(100% - 4px) 4px,
-        100% 4px,
-        100% calc(100% - 4px),
-        calc(100% - 4px) calc(100% - 4px),
-        calc(100% - 4px) 100%,
-        4px 100%,
-        4px calc(100% - 4px),
-        0 calc(100% - 4px)
-      );
-      transition:
-        transform 0.2s ease,
-        border-color 0.2s ease,
-        box-shadow 0.2s ease;
-
-      &:hover {
-        border-color: $neon-cyan;
-        transform: translateY(-2px);
-        box-shadow: 0 0 25px rgba($neon-cyan, 0.3);
-      }
-    }
-  }
-
-  .detail {
-    display: flex;
-  }
-
-  .detail-title {
-    font-size: 14px;
-    color: $pixel-text;
-    font-weight: 600;
-  }
-
-  .detail-icon {
-    font-size: 20px;
-    margin-right: 10px;
-    display: flex;
-    align-items: center;
-  }
-
-  .detail-content .into {
-    line-height: 18px;
-    font-size: 12px;
-    font-weight: 400;
-    color: $pixel-text-muted;
-    height: 38px;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .action-use {
-    width: 70px;
-    height: 25px;
-    line-height: 23px;
-    font-size: 12px;
-    color: #fff;
-    text-align: center;
-    float: right;
-    margin-top: 10px;
-    border: 2px solid $neon-purple;
-    background: linear-gradient(
-      180deg,
-      rgba($neon-purple, 0.4) 0%,
-      rgba($neon-purple, 0.2) 50%,
-      rgba($neon-purple, 0.1) 100%
-    );
-    box-shadow:
-      0 0 10px rgba($neon-purple, 0.4),
-      inset 1px 1px 0 rgba(255, 255, 255, 0.1);
-    clip-path: polygon(
-      0 3px,
-      3px 3px,
-      3px 0,
-      calc(100% - 3px) 0,
-      calc(100% - 3px) 3px,
-      100% 3px,
-      100% calc(100% - 3px),
-      calc(100% - 3px) calc(100% - 3px),
-      calc(100% - 3px) 100%,
-      3px 100%,
-      3px calc(100% - 3px),
-      0 calc(100% - 3px)
-    );
-    font-weight: 600;
-    transition:
-      transform 0.07s ease-out,
-      box-shadow 0.07s ease-out,
-      filter 0.07s ease-out;
-
-    &:active {
-      transform: translate(2px, 3px);
-
-      @include pixel-press-shadow;
-
-      filter: brightness(0.92);
-    }
+  .template-list-dialog .prompt {
+    grid-template-columns: 1fr;
+    max-height: 52vh;
   }
 }
 </style>

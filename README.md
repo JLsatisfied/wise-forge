@@ -42,8 +42,7 @@ wise-forge/
 │   ├── store/
 │   │   └── index.ts            # Pinia 状态管理
 │   ├── styles/                 # 全局样式
-│   │   ├── _pixel-theme.scss   # 像素主题变量 & mixins
-│   │   └── pixel-utilities.scss# 共享工具类
+│   │   └── theme.scss          # 主题变量（亮色/暗色）& 共享样式
 │   ├── utils/
 │   │   ├── http/
 │   │   │   ├── axios.ts        # Axios 实例 + 拦截器

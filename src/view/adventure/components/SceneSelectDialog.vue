@@ -71,7 +71,6 @@ const startAdventure = () => {
               }"
               @click="selectedId = scene.id"
             >
-              <div class="card-glow"></div>
               <div class="card-icon-wrap">
                 <i v-if="scene.id === 'dragon_peak'" class="fas fa-dragon"></i>
                 <i v-else-if="scene.id === 'whisper_forest'" class="fas fa-spa"></i>
@@ -95,7 +94,7 @@ const startAdventure = () => {
             :disabled="!selectedId"
             @click="startAdventure"
           >
-            <i class="fas fa-swords"></i>
+            <i class="fas fa-play"></i>
             <span>开始冒险</span>
           </button>
         </div>
@@ -105,23 +104,17 @@ const startAdventure = () => {
 </template>
 
 <style lang="scss" scoped>
-@use '@/styles/pixel-theme' as *;
-
-$dragon: #e8794b;
-$forest: #4db87f;
-$ruins: #5b9ad9;
-
 /* ===== 遮罩 ===== */
 .dialog-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(4, 8, 16, 0.88);
-  backdrop-filter: blur(6px);
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
   padding: 20px;
+  background: rgba(15, 18, 25, 0.45);
+  backdrop-filter: blur(4px);
 }
 
 /* ===== 主框架 ===== */
@@ -130,21 +123,23 @@ $ruins: #5b9ad9;
   width: min(600px, 100%);
   max-height: 88vh;
   overflow-y: auto;
-  background: linear-gradient(180deg, #0f1a2e 0%, #0a1220 100%);
-  border: 1px solid rgba($neon-cyan, 0.15);
-  padding: 32px 32px 28px;
-  box-shadow:
-    0 0 40px rgba($neon-cyan, 0.08),
-    inset 0 0 80px rgba(0, 0, 0, 0.4);
+  padding: 30px 28px 26px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
   scrollbar-width: thin;
-  scrollbar-color: rgba($neon-cyan, 0.15) transparent;
+  scrollbar-color: var(--border-strong) transparent;
 
   &::-webkit-scrollbar {
-    width: 3px;
+    width: 6px;
   }
+
   &::-webkit-scrollbar-thumb {
-    background: rgba($neon-cyan, 0.2);
+    border-radius: 999px;
+    background: var(--border-strong);
   }
+
   &::-webkit-scrollbar-track {
     background: transparent;
   }
@@ -153,31 +148,33 @@ $ruins: #5b9ad9;
 /* ===== 返回 ===== */
 .back-btn {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 16px;
+  right: 16px;
   width: 30px;
   height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: none;
-  border: 1px solid rgba($neon-cyan, 0.15);
-  color: rgba($pixel-text-muted, 0.4);
-  cursor: pointer;
-  transition: all 0.15s ease;
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-3);
   font-size: 13px;
+  cursor: pointer;
+  transition:
+    background-color 0.15s var(--ease),
+    color 0.15s var(--ease);
 
   &:hover {
-    color: $pixel-text;
-    border-color: rgba($neon-cyan, 0.3);
-    background: rgba($neon-cyan, 0.06);
+    background: var(--surface-2);
+    color: var(--text);
   }
 }
 
 /* ===== 标题 ===== */
 .title-section {
+  margin-bottom: 18px;
   text-align: center;
-  margin-bottom: 20px;
 }
 
 .title-bar {
@@ -191,34 +188,32 @@ $ruins: #5b9ad9;
 .title-bar-edge {
   width: 32px;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba($neon-cyan, 0.3));
+  background: linear-gradient(90deg, transparent, var(--border-strong));
 
   &:last-child {
-    background: linear-gradient(90deg, rgba($neon-cyan, 0.3), transparent);
+    background: linear-gradient(90deg, var(--border-strong), transparent);
   }
 }
 
 .title-bar-glow {
-  width: 60px;
+  width: 44px;
   height: 2px;
-  background: linear-gradient(90deg, $neon-cyan, $neon-magenta);
-  box-shadow: 0 0 10px rgba($neon-cyan, 0.4);
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--info));
 }
 
 .title {
-  font-family: myFirstFont, 'VT323', monospace;
-  font-size: 26px;
-  color: #fff;
   margin: 0 0 6px;
-  letter-spacing: 8px;
-  font-weight: 400;
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 1px;
 }
 
 .subtitle {
-  font-size: 13px;
-  color: rgba($pixel-text-muted, 0.5);
   margin: 0;
-  letter-spacing: 2px;
+  color: var(--text-3);
+  font-size: 13px;
 }
 
 /* ===== 冒险者 ===== */
@@ -226,124 +221,97 @@ $ruins: #5b9ad9;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  margin-bottom: 22px;
+  margin-bottom: 20px;
 }
 
 .hero-name {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
 }
 
 .hero-label {
-  font-size: 13px;
-  color: rgba($pixel-text-muted, 0.4);
-  letter-spacing: 3px;
+  color: var(--text-3);
+  font-size: 12px;
 }
 
 .hero-divider {
+  color: var(--border-strong);
   font-size: 7px;
-  color: rgba($neon-cyan, 0.2);
 }
 
 .hero-value {
-  font-family: myFirstFont, 'VT323', monospace;
-  font-size: 20px;
-  color: $neon-cyan-light;
-  letter-spacing: 6px;
-  text-shadow: 0 0 20px rgba($neon-cyan, 0.3);
-  font-weight: 400;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
 }
 
 /* ===== 场景卡片 ===== */
 .scene-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   margin-bottom: 20px;
 }
 
 .scene-card {
+  --scene-color: var(--accent);
+
+  position: relative;
   position: relative;
   display: flex;
   align-items: flex-start;
-  gap: 14px;
-  padding: 14px 16px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba($neon-cyan, 0.08);
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
   cursor: pointer;
-  transition: all 0.2s ease;
-  overflow: hidden;
+  transition:
+    background-color 0.16s var(--ease),
+    border-color 0.16s var(--ease),
+    box-shadow 0.16s var(--ease);
+
+  &.is-dragon {
+    --scene-color: #e2673f;
+  }
+
+  &.is-forest {
+    --scene-color: #16a34a;
+  }
+
+  &.is-ruins {
+    --scene-color: #2563eb;
+  }
 
   &:hover {
-    background: rgba(255, 255, 255, 0.04);
-    border-color: rgba($neon-cyan, 0.18);
-  }
-
-  &.is-dragon:hover {
-    border-color: rgba($dragon, 0.3);
-  }
-  &.is-forest:hover {
-    border-color: rgba($forest, 0.3);
-  }
-  &.is-ruins:hover {
-    border-color: rgba($ruins, 0.3);
+    border-color: var(--border-strong);
+    background: var(--surface-2);
   }
 
   &.is-active {
-    border-color: rgba($neon-cyan, 0.25);
-
-    &.is-dragon {
-      border-color: rgba($dragon, 0.4);
-    }
-    &.is-forest {
-      border-color: rgba($forest, 0.4);
-    }
-    &.is-ruins {
-      border-color: rgba($ruins, 0.4);
-    }
-
-    &.is-dragon .card-glow {
-      background: radial-gradient(ellipse at 0% 50%, rgba($dragon, 0.06), transparent 70%);
-    }
-    &.is-forest .card-glow {
-      background: radial-gradient(ellipse at 0% 50%, rgba($forest, 0.06), transparent 70%);
-    }
-    &.is-ruins .card-glow {
-      background: radial-gradient(ellipse at 0% 50%, rgba($ruins, 0.06), transparent 70%);
-    }
+    border-color: var(--scene-color);
+    background: var(--surface);
+    box-shadow: 0 0 0 3px var(--accent-ring);
   }
 }
 
-.card-glow {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
 .card-icon-wrap {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
-  border: 1px solid rgba($neon-cyan, 0.12);
-
-  .is-dragon & {
-    color: $dragon;
-    border-color: rgba($dragon, 0.2);
-  }
-  .is-forest & {
-    color: $forest;
-    border-color: rgba($forest, 0.2);
-  }
-  .is-ruins & {
-    color: $ruins;
-    border-color: rgba($ruins, 0.2);
-  }
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--scene-color);
+  font-size: 16px;
 }
 
 .card-body {
@@ -353,99 +321,118 @@ $ruins: #5b9ad9;
 
 .card-top {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 1px;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 2px;
 }
 
 .card-name {
-  font-size: 15px;
+  color: var(--text);
+  font-size: 14px;
   font-weight: 600;
-  color: $pixel-text;
 }
 
 .card-diff {
+  flex-shrink: 0;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-3);
   font-size: 11px;
-  color: rgba($pixel-text-muted, 0.6);
 }
 
 .card-sub {
   display: block;
-  font-size: 12px;
-  color: rgba($pixel-text-muted, 0.4);
   margin-bottom: 4px;
+  color: var(--text-2);
+  font-size: 12px;
 }
 
 .card-desc {
-  font-size: 13px;
-  color: rgba($pixel-text, 0.45);
-  line-height: 1.5;
-  margin: 0;
   display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: 13px;
+  line-height: 1.5;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 /* ===== 开始按钮 ===== */
 .start-btn {
   width: 100%;
-  padding: 12px;
-  font-size: 16px;
-  font-weight: 500;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba($neon-cyan, 0.12);
-  color: rgba($pixel-text-muted, 0.3);
-  cursor: pointer;
-  transition: all 0.2s ease;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  letter-spacing: 4px;
-
-  &:disabled {
-    cursor: not-allowed;
-  }
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  cursor: not-allowed;
+  transition:
+    background-color 0.16s var(--ease),
+    border-color 0.16s var(--ease),
+    color 0.16s var(--ease);
 
   &.is-ready {
-    color: $neon-cyan-light;
-    border-color: rgba($neon-cyan, 0.2);
-    background: rgba($neon-cyan, 0.04);
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
 
     &:hover {
-      background: rgba($neon-cyan, 0.08);
-      border-color: rgba($neon-cyan, 0.35);
-      box-shadow: 0 0 20px rgba($neon-cyan, 0.08);
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
     }
   }
 }
 
 /* ===== 过渡 ===== */
 .dialog-fade-enter-active {
-  transition: opacity 0.25s ease;
+  transition: opacity 0.2s var(--ease);
+
   .dialog-frame {
     transition:
-      transform 0.25s ease,
-      opacity 0.25s ease;
+      transform 0.2s var(--ease),
+      opacity 0.2s var(--ease);
   }
 }
 
 .dialog-fade-leave-active {
-  transition: opacity 0.15s ease;
+  transition: opacity 0.15s var(--ease);
+
   .dialog-frame {
     transition:
-      transform 0.15s ease,
-      opacity 0.15s ease;
+      transform 0.15s var(--ease),
+      opacity 0.15s var(--ease);
   }
 }
 
 .dialog-fade-enter-from,
 .dialog-fade-leave-to {
   opacity: 0;
+
   .dialog-frame {
-    transform: scale(0.96);
+    transform: scale(0.97);
     opacity: 0;
+  }
+}
+
+@media (width <= 520px) {
+  .dialog-frame {
+    padding: 26px 16px 20px;
+  }
+
+  .title {
+    font-size: 19px;
   }
 }
 </style>

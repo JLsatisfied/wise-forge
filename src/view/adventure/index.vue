@@ -9,6 +9,7 @@ import AdventureHUD from './components/AdventureHUD.vue'
 import AdventureMessage from './components/AdventureMessage.vue'
 import AdventureInput from './components/AdventureInput.vue'
 import SceneSelectDialog from './components/SceneSelectDialog.vue'
+import ThemeToggle from '@/components/ThemeToggle.vue'
 import { useAdventureState } from './composables/useAdventureState'
 import scenes from './data/adventureScenes'
 
@@ -260,22 +261,6 @@ onUnmounted(() => {
 
 <template>
   <div class="adventure-page">
-    <!-- 环境粒子背景 -->
-    <div class="ambient-particles" aria-hidden="true">
-      <span
-        v-for="n in 12"
-        :key="n"
-        class="particle"
-        :style="{
-          '--x': Math.random() * 100 + '%',
-          '--y': Math.random() * 100 + '%',
-          '--d': 8 + Math.random() * 20 + 's',
-          '--s': 0.5 + Math.random() * 1.5,
-          '--op': 0.05 + Math.random() * 0.12
-        }"
-      ></span>
-    </div>
-
     <!-- 左侧 HUD -->
     <AdventureHUD
       :player="state.player"
@@ -327,8 +312,11 @@ onUnmounted(() => {
           </div>
           <span class="topbar-scene-name">选择你的冒险</span>
         </div>
-        <div class="topbar-right" v-if="isPlaying">
-          <span class="topbar-dm-badge"> <i class="fas fa-crown"></i> DM 命运织者 </span>
+        <div class="topbar-right">
+          <span class="topbar-dm-badge" v-if="isPlaying">
+            <i class="fas fa-crown"></i> DM 命运织者
+          </span>
+          <ThemeToggle />
         </div>
       </div>
 
@@ -393,267 +381,157 @@ onUnmounted(() => {
 </template>
 
 <style lang="scss" scoped>
-@use '@/styles/pixel-theme' as *;
-
 .adventure-page {
-  width: 100vw;
-  height: 100vh;
-  display: flex;
-  background:
-    radial-gradient(ellipse at 20% 80%, rgba($neon-magenta, 0.12) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 20%, rgba($neon-cyan, 0.12) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 50%, rgba($neon-purple, 0.08) 0%, transparent 70%),
-    linear-gradient(180deg, #0a0a12 0%, #12121f 50%, #0a0a12 100%);
-  color: $pixel-text;
-  overflow: hidden;
-  position: relative;
-}
-
-/* ==================== 环境粒子 ==================== */
-.ambient-particles {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  overflow: hidden;
-}
-
-.particle {
-  position: absolute;
-  left: var(--x);
-  top: var(--y);
-  width: 2px;
-  height: 2px;
-  background: $neon-cyan;
-  border-radius: 50%;
-  opacity: var(--op);
-  filter: blur(1px);
-  animation: particle-drift var(--d) linear infinite;
-  animation-delay: calc(var(--d) * -0.5);
-  transform: scale(var(--s));
-}
-
-.particle:nth-child(odd) {
-  background: $neon-magenta;
-}
-
-.particle:nth-child(3n) {
-  background: $neon-purple;
-  width: 3px;
-  height: 3px;
-}
-
-@keyframes particle-drift {
-  0% {
-    transform: translateY(0) translateX(0) scale(var(--s));
-    opacity: 0;
-  }
-
-  10% {
-    opacity: var(--op);
-  }
-
-  90% {
-    opacity: var(--op);
-  }
-
-  100% {
-    transform: translateY(calc(-100vh - 100px)) translateX(60px) scale(var(--s));
-    opacity: 0;
-  }
+  min-height: 100vh;
+  background: radial-gradient(circle at 82% 0%, var(--accent-softer), transparent 42%), var(--bg);
+  color: var(--text);
 }
 
 .adventure-main {
-  flex: 1;
+  margin-left: 240px;
+  height: 100vh;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  min-width: 0;
 }
 
-/* 顶部导航 */
 .adventure-topbar {
+  flex-shrink: 0;
+  height: 64px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 16px;
-  padding: 14px 24px;
-  background: linear-gradient(180deg, rgba(10, 20, 40, 0.95), rgba(13, 22, 36, 0.9));
-  border-bottom: 1px solid rgba($neon-cyan, 0.08);
-  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
-  position: relative;
-  z-index: 2;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .topbar-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: rgba($neon-cyan, 0.06);
-  border: 1px solid rgba($neon-cyan, 0.2);
-  color: rgba($pixel-text-muted, 0.7);
-  font-size: 13px;
+  gap: 7px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 12px;
   cursor: pointer;
-  transition: all 0.15s ease;
-  clip-path: polygon(
-    0 3px,
-    3px 3px,
-    3px 0,
-    calc(100% - 3px) 0,
-    calc(100% - 3px) 3px,
-    100% 3px,
-    100% calc(100% - 3px),
-    calc(100% - 3px) calc(100% - 3px),
-    calc(100% - 3px) 100%,
-    3px 100%,
-    3px calc(100% - 3px),
-    0 calc(100% - 3px)
-  );
-  flex-shrink: 0;
+  transition:
+    background-color 0.16s var(--ease),
+    border-color 0.16s var(--ease),
+    color 0.16s var(--ease);
 
   i {
-    font-size: 12px;
+    font-size: 11px;
   }
 
   &:hover {
-    background: rgba($neon-cyan, 0.14);
-    border-color: rgba($neon-cyan, 0.35);
-    color: $neon-cyan-light;
-    box-shadow: 0 0 12px rgba($neon-cyan, 0.1);
+    background: var(--surface-3);
+    border-color: var(--border-strong);
+    color: var(--text);
   }
 }
 
 .topbar-center {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex: 1;
   justify-content: center;
-  min-width: 0;
+  gap: 10px;
 }
 
 .topbar-scene-icon {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba($neon-cyan, 0.08);
-  border: 1px solid rgba($neon-cyan, 0.2);
+  width: 34px;
+  height: 34px;
   flex-shrink: 0;
-  box-shadow: 0 0 10px rgba($neon-cyan, 0.1);
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 14px;
 
-  i {
-    font-size: 16px;
-    color: $neon-magenta;
-    filter: drop-shadow(0 0 4px rgba($neon-magenta, 0.4));
-  }
-
-  &.is-idle i {
-    color: $neon-cyan;
-    filter: drop-shadow(0 0 4px rgba($neon-cyan, 0.4));
-    animation: compass-idle 3s ease-in-out infinite;
-  }
-}
-
-@keyframes compass-idle {
-  0%,
-  100% {
-    transform: rotate(0deg);
-  }
-  25% {
-    transform: rotate(5deg);
-  }
-  75% {
-    transform: rotate(-5deg);
+  &.is-idle {
+    background: var(--surface-2);
+    color: var(--text-3);
   }
 }
 
 .topbar-scene-info {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   min-width: 0;
 }
 
 .topbar-scene-name {
-  font-family: myFirstFont, 'VT323', monospace;
-  font-size: 18px;
-  color: #fff;
-  letter-spacing: 4px;
-  text-shadow: 0 0 10px rgba($neon-cyan, 0.4);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .topbar-scene-sub {
+  color: var(--text-3);
   font-size: 11px;
-  color: rgba($pixel-text-muted, 0.4);
-  letter-spacing: 3px;
 }
 
 .topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex-shrink: 0;
 }
 
 .topbar-dm-badge {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 14px;
-  font-size: 12px;
-  color: rgba($neon-cyan, 0.6);
-  border: 1px solid rgba($neon-cyan, 0.1);
-  letter-spacing: 1px;
+  height: 30px;
+  padding: 0 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-size: 11px;
+  white-space: nowrap;
 
   i {
+    color: var(--warning);
     font-size: 10px;
-    color: $neon-magenta;
   }
 }
 
-/* 聊天区域 */
 .adventure-chat {
   flex: 1;
   overflow-y: auto;
-  padding: 24px;
-  min-height: 0;
-  position: relative;
-
-  &::-webkit-scrollbar {
-    width: 5px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background: rgba($neon-cyan, 0.1);
-    border-radius: 0;
-
-    &:hover {
-      background: rgba($neon-cyan, 0.25);
-    }
-  }
+  padding: 24px 20px;
 }
 
 .chat-inner {
-  max-width: 780px;
+  max-width: 820px;
   margin: 0 auto;
-  padding: 0 8px;
-  position: relative;
-  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 8px;
 }
 
 .message-wrapper {
-  animation: msg-enter 0.3s ease;
+  animation: msg-enter 0.25s var(--ease) both;
 }
 
 @keyframes msg-enter {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(6px);
   }
 
   to {
@@ -662,112 +540,28 @@ onUnmounted(() => {
   }
 }
 
-/* 输入区域 */
 .adventure-bottom {
-  padding: 0 24px;
-  border-top: 1px solid rgba($neon-cyan, 0.06);
-  background: linear-gradient(180deg, rgba(10, 20, 40, 0.8), rgba(10, 20, 40, 0.95));
-  position: relative;
-  z-index: 2;
+  flex-shrink: 0;
+  padding: 0 20px 18px;
 }
 
-/* 打字指示器 */
-.typing-indicator {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 16px 0;
-  justify-content: center;
-}
-
-.typing-dot {
-  width: 10px;
-  height: 10px;
-  background: $neon-cyan;
-  border-radius: 0;
-  animation: typing-bounce 1.4s ease-in-out infinite;
-  box-shadow: 0 0 8px rgba($neon-cyan, 0.3);
-  clip-path: polygon(
-    0 1px,
-    1px 1px,
-    1px 0,
-    calc(100% - 1px) 0,
-    calc(100% - 1px) 1px,
-    100% 1px,
-    100% calc(100% - 1px),
-    calc(100% - 1px) calc(100% - 1px),
-    calc(100% - 1px) 100%,
-    1px 100%,
-    1px calc(100% - 1px),
-    0 calc(100% - 1px)
-  );
-
-  &:nth-child(2) {
-    animation-delay: 0.2s;
-  }
-
-  &:nth-child(3) {
-    animation-delay: 0.4s;
-  }
-}
-
-@keyframes typing-bounce {
-  0%,
-  60%,
-  100% {
-    transform: translateY(0);
-    opacity: 0.4;
-  }
-
-  30% {
-    transform: translateY(-8px);
-    opacity: 1;
-  }
-}
-
-/* 空状态 */
-.empty-state {
-  text-align: center;
-  padding: 80px 20px;
-  color: $pixel-text-muted;
-
-  i {
-    font-size: 56px;
-    color: rgba($neon-cyan, 0.1);
-    margin-bottom: 20px;
-    display: block;
-    animation: empty-float 3s ease-in-out infinite;
-  }
-
-  @keyframes empty-float {
-    0%,
-    100% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-6px);
-    }
-  }
-
-  p {
-    font-size: 14px;
-    margin: 0;
-    letter-spacing: 2px;
-    color: rgba($pixel-text-muted, 0.4);
-  }
-}
-
-/* ===== 选项面板 ===== */
+/* ---------- 选项 ---------- */
 .choices-panel {
-  padding: 18px 0 12px 56px;
-  animation: choices-enter 0.4s ease;
+  margin-top: 4px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  animation: choices-enter 0.25s var(--ease) both;
 }
 
 @keyframes choices-enter {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(5px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -775,22 +569,11 @@ onUnmounted(() => {
 }
 
 .choices-label {
-  font-size: 12px;
-  color: $neon-magenta;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
+  color: var(--text-3);
+  font-size: 11px;
   font-weight: 600;
-  text-shadow: 0 0 8px rgba($neon-magenta, 0.3);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-
-  &::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: linear-gradient(90deg, rgba($neon-magenta, 0.15), transparent);
-    margin-left: 4px;
-  }
+  letter-spacing: 0.4px;
 }
 
 .choices-list {
@@ -802,347 +585,330 @@ onUnmounted(() => {
 .choice-btn {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 13px 18px;
-  background: rgba($neon-purple, 0.06);
-  border: 1px solid rgba($neon-purple, 0.2);
-  border-left: 2px solid rgba($neon-purple, 0.3);
-  color: $pixel-text;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.18s ease;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
   text-align: left;
-  position: relative;
-  overflow: hidden;
-  clip-path: polygon(
-    0 4px,
-    4px 4px,
-    4px 0,
-    calc(100% - 4px) 0,
-    calc(100% - 4px) 4px,
-    100% 4px,
-    100% calc(100% - 4px),
-    calc(100% - 4px) calc(100% - 4px),
-    calc(100% - 4px) 100%,
-    4px 100%,
-    4px calc(100% - 4px),
-    0 calc(100% - 4px)
-  );
-
-  /* hover 光效 */
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba($neon-purple, 0.06), transparent);
-    transition: left 0.4s ease;
-  }
+  cursor: pointer;
+  transition:
+    background-color 0.16s var(--ease),
+    border-color 0.16s var(--ease);
 
   &:hover {
-    background: rgba($neon-purple, 0.14);
-    border-color: rgba($neon-purple, 0.45);
-    border-left-color: $neon-purple;
-    transform: translateX(6px);
-    box-shadow:
-      0 4px 20px rgba($neon-purple, 0.2),
-      0 0 30px rgba($neon-purple, 0.08);
-
-    &::before {
-      left: 100%;
-    }
-
-    .choice-number {
-      background: rgba($neon-purple, 0.5);
-      border-color: $neon-magenta;
-      color: #fff;
-      box-shadow: 0 0 10px rgba($neon-magenta, 0.3);
-    }
-  }
-
-  &:active {
-    transform: translateX(8px) translateY(1px);
-    filter: brightness(0.9);
-    transition: all 0.05s ease;
+    background: var(--accent-softer);
+    border-color: var(--accent-ring);
   }
 }
 
 .choice-number {
-  width: 30px;
-  height: 30px;
+  width: 22px;
+  height: 22px;
   flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba($neon-purple, 0.2);
-  border: 1px solid rgba($neon-purple, 0.35);
-  font-size: 14px;
-  font-weight: 700;
-  color: $neon-cyan-light;
-  font-family: 'VT323', monospace;
-  transition: all 0.18s ease;
-  clip-path: polygon(
-    0 2px,
-    2px 2px,
-    2px 0,
-    calc(100% - 2px) 0,
-    calc(100% - 2px) 2px,
-    100% 2px,
-    100% calc(100% - 2px),
-    calc(100% - 2px) calc(100% - 2px),
-    calc(100% - 2px) 100%,
-    2px 100%,
-    2px calc(100% - 2px),
-    0 calc(100% - 2px)
-  );
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .choice-text {
-  flex: 1;
   line-height: 1.5;
-  font-size: 14px;
 }
 
-/* ===== 回答中行 ===== */
+/* ---------- 回答中 ---------- */
 .answering-row {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  padding: 14px 0;
+  gap: 12px;
+  padding: 12px;
 }
 
-.stop-btn {
+.typing-indicator {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 16px;
-  background: rgba(#c97b7b, 0.08);
-  border: 1px solid rgba(#c97b7b, 0.3);
-  color: rgba(#c97b7b, 0.8);
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  letter-spacing: 1px;
-  clip-path: polygon(
-    0 3px,
-    3px 3px,
-    3px 0,
-    calc(100% - 3px) 0,
-    calc(100% - 3px) 3px,
-    100% 3px,
-    100% calc(100% - 3px),
-    calc(100% - 3px) calc(100% - 3px),
-    calc(100% - 3px) 100%,
-    3px 100%,
-    3px calc(100% - 3px),
-    0 calc(100% - 3px)
-  );
+  gap: 5px;
+}
 
-  i {
-    font-size: 10px;
+.typing-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-3);
+  animation: typing-bounce 1.2s infinite ease-in-out;
+
+  &:nth-child(2) {
+    animation-delay: 0.15s;
   }
 
-  &:hover {
-    background: rgba(#c97b7b, 0.2);
-    border-color: #c97b7b;
-    color: #fff;
-    box-shadow: 0 0 16px rgba(#c97b7b, 0.2);
-  }
-
-  &:active {
-    transform: translate(1px, 2px);
-    filter: brightness(0.9);
+  &:nth-child(3) {
+    animation-delay: 0.3s;
   }
 }
 
-/* ===== 动作特效 ===== */
-.effect-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  pointer-events: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: effect-flash 0.8s ease forwards;
-}
-
-@keyframes effect-flash {
-  0% {
-    background: rgba(255, 255, 255, 0.04);
+@keyframes typing-bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
   }
 
   30% {
-    background: transparent;
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+
+.stop-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    background-color 0.16s var(--ease),
+    border-color 0.16s var(--ease),
+    color 0.16s var(--ease);
+
+  &:hover {
+    background: var(--danger-soft);
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+}
+
+/* ---------- 空状态 ---------- */
+.empty-state {
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text-3);
+
+  i {
+    font-size: 34px;
+    opacity: 0.55;
   }
 
-  100% {
-    background: transparent;
+  p {
+    margin: 0;
+    font-size: 13px;
   }
+}
+
+/* ---------- 动作特效 ---------- */
+.effect-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  background: radial-gradient(circle, var(--accent-soft), transparent 42%);
+  animation: effect-flash 0.8s var(--ease) forwards;
 }
 
 .effect-sprite {
   position: relative;
-  width: 200px;
-  height: 200px;
+  width: 140px;
+  height: 140px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
 }
 
-/* 攻击斩击 */
+@keyframes effect-flash {
+  0% {
+    opacity: 0;
+  }
+
+  20% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
 .slash {
   position: absolute;
   inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .slash-line {
   position: absolute;
-  height: 3px;
-  background: $neon-cyan;
-  box-shadow:
-    0 0 12px $neon-cyan,
-    0 0 25px $neon-cyan;
-  border-radius: 2px;
+  left: 50%;
+  top: 50%;
+  width: 4px;
+  height: 56px;
+  border-radius: 3px;
+  background: var(--accent);
   opacity: 0;
+  animation: slash-sweep 0.55s ease-out forwards;
 
   &.l1 {
-    width: 120px;
-    transform: rotate(-35deg);
-    animation: slash-sweep 0.4s ease-out 0.05s forwards;
+    transform: translate(-50%, -50%) rotate(45deg);
   }
 
   &.l2 {
-    width: 90px;
-    transform: rotate(-20deg);
-    background: $neon-cyan-light;
-    animation: slash-sweep 0.35s ease-out 0.1s forwards;
+    transform: translate(-50%, -50%) rotate(-45deg);
+    background: var(--info);
+    animation-delay: 0.06s;
   }
 
   &.l3 {
-    width: 60px;
-    transform: rotate(-50deg);
-    background: #fff;
-    animation: slash-sweep 0.3s ease-out 0.15s forwards;
+    transform: translate(-50%, -50%) rotate(90deg);
+    background: var(--warning);
+    animation-delay: 0.12s;
   }
 }
 
 .slash-spark {
   position: absolute;
-  width: 8px;
-  height: 8px;
-  background: #fff;
-  box-shadow:
-    0 0 10px $neon-cyan,
-    0 0 20px $neon-cyan,
-    0 0 40px $neon-magenta;
-  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
-  animation: spark-burst 0.5s ease-out 0.2s forwards;
-  opacity: 0;
+  inset: 36%;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  animation: spark-burst 0.6s ease-out forwards;
 }
 
 @keyframes slash-sweep {
   0% {
     opacity: 0;
-    transform: rotate(-35deg) scaleX(0);
+    filter: blur(2px);
   }
 
-  30% {
+  35% {
     opacity: 1;
+    filter: blur(0);
   }
 
   100% {
     opacity: 0;
-    transform: rotate(-35deg) scaleX(1.3) translateX(30px);
   }
 }
 
 @keyframes spark-burst {
   0% {
-    opacity: 0;
-    transform: scale(0);
-  }
-
-  50% {
-    opacity: 1;
-    transform: scale(2);
+    transform: scale(0.5);
+    opacity: 0.8;
   }
 
   100% {
+    transform: scale(1.7);
     opacity: 0;
-    transform: scale(3);
   }
 }
 
-/* 调查波纹 */
 .search {
   position: absolute;
   inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
 }
 
 .search-ring {
   position: absolute;
-  width: 40px;
-  height: 40px;
-  border: 2px solid $neon-cyan;
+  width: 54px;
+  height: 54px;
+  border: 2px solid var(--accent);
   border-radius: 50%;
   opacity: 0;
-  animation: ring-pulse 0.8s ease-out forwards;
+  animation: ring-pulse 0.7s ease-out forwards;
 
   &.r2 {
+    width: 70px;
+    height: 70px;
+    border-color: var(--info);
     animation-delay: 0.1s;
   }
 
   &.r3 {
+    width: 86px;
+    height: 86px;
+    border-color: var(--warning);
     animation-delay: 0.2s;
-    width: 30px;
-    height: 30px;
   }
 }
 
 .search-mag {
-  position: absolute;
-  font-size: 32px;
-  animation: mag-bounce 0.6s ease-out forwards;
+  font-size: 28px;
   opacity: 0;
+  animation: mag-bounce 0.7s ease-out forwards;
 }
 
 @keyframes ring-pulse {
   0% {
     opacity: 0;
-    transform: scale(0.3);
+    transform: scale(0.4);
   }
 
-  40% {
-    opacity: 0.6;
+  45% {
+    opacity: 0.7;
   }
 
   100% {
     opacity: 0;
-    transform: scale(3);
+    transform: scale(1.25);
   }
 }
 
 @keyframes mag-bounce {
   0% {
     opacity: 0;
-    transform: scale(0.3) rotate(-30deg);
+    transform: scale(0.4) translateY(6px);
   }
 
   50% {
     opacity: 1;
-    transform: scale(1.15) rotate(5deg);
+    transform: scale(1.08) translateY(-4px);
   }
 
   100% {
     opacity: 0;
-    transform: scale(1) rotate(0deg) translateY(-40px);
+    transform: scale(1) translateY(-14px);
+  }
+}
+
+@media (width <= 900px) {
+  .adventure-topbar {
+    padding: 0 12px;
+  }
+
+  .topbar-btn span {
+    display: none;
+  }
+
+  .adventure-chat {
+    padding: 16px 12px;
+  }
+
+  .adventure-bottom {
+    padding: 0 12px 14px;
+  }
+
+  .topbar-dm-badge {
+    display: none;
   }
 }
 </style>

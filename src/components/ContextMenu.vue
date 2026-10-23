@@ -29,7 +29,7 @@ const handleClick = (item: menuObject) => {
             top: y + 'px'
           }">
               <!-- 循环遍历菜单项，显示出来 -->
-              <div @click="handleClick(item)" class="menu-item text-sm hover:bg-indigo-600" v-for="item in menu" :key="item.label">
+              <div @click="handleClick(item)" class="menu-item" v-for="item in menu" :key="item.label">
                 {{ item.label }}
               </div>
             </div>
@@ -40,35 +40,43 @@ const handleClick = (item: menuObject) => {
 
 <style scoped>
 .menu-list {
-  width: 100px;
   position: absolute;
-  padding: 6px;
-  background-color: #fff;
-  color: #000;
-  border-radius: 5px;
-  box-shadow: 0 0 10px 5px rgba(199, 182, 231, 0.5)
+  z-index: 1000;
+  width: 112px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-md);
 }
 
 .menu-item {
+  padding: 7px 10px;
+  border-radius: 6px;
+  color: var(--text-2);
+  font-size: 13px;
   cursor: pointer;
-  margin-top: 5px;
-  padding: 3px;
-  border-radius: 5px;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .menu-item:hover {
-  color: #fff;
+  background: var(--surface-hover);
+  color: var(--text);
 }
 
-.menu-item:first-child {
-  margin-top: 0;
+.fade-enter-active,
+.fade-leave-active {
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
 }
 
-.fade-enter-active, .fade-leave-active {
-  transition: all 0.5s;
-}
-
-.fade-enter-from, .fade-leave-to {
+.fade-enter-from,
+.fade-leave-to {
   opacity: 0;
+  transform: translateY(-2px);
 }
 </style>

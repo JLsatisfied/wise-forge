@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { aiModelsObject } from '@/utils/types/ai'
+import ThemeToggle from '@/components/ThemeToggle.vue'
 
 defineOptions({ name: 'NavBar' })
 
@@ -49,7 +50,9 @@ const showUserMenu = ref(false)
         </div>
       </div>
     </div>
-    <div class="relative">
+    <div class="pixel-nav-actions">
+      <ThemeToggle />
+      <div class="relative">
       <button @click="showUserMenu = !showUserMenu"
         class="pixel-user-trigger flex items-center gap-2 px-3 py-2 cursor-pointer">
         <img :src="nickImg" class="w-8 h-8 object-cover pixel-avatar" alt="用户头像" />
@@ -65,174 +68,220 @@ const showUserMenu = ref(false)
           <i class="fas fa-sign-out-alt mr-2"></i>离开冒险
         </a>
       </div>
+      </div>
     </div>
   </nav>
 </template>
 
 <style lang="scss" scoped>
-@use '@/styles/pixel-theme' as *;
-
 .pixel-nav {
-  margin: 12px 16px 0;
-  background: $pixel-dialog-bg;
-  border: 2px solid $pixel-border;
-  box-shadow:
-    0 0 30px rgba($neon-cyan, 0.15),
-    0 0 60px rgba($neon-magenta, 0.1);
-  max-width: calc(100% - 32px);
+  position: relative;
+  z-index: 5;
+  flex-shrink: 0;
+  height: 64px;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.04);
   box-sizing: border-box;
 }
 
 .pixel-title {
-  font-family: myFirstFont, "VT323", ui-monospace, monospace;
-  font-weight: normal;
-  color: #fff;
-  letter-spacing: 0.04em;
-  text-shadow:
-    0 0 10px $neon-cyan,
-    0 0 20px $neon-cyan;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.pixel-nav .fa-robot {
+  color: var(--accent);
+  font-size: 18px;
+}
+
+.pixel-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .pixel-nav-user {
-  color: $pixel-text;
-  font-weight: 600;
   max-width: 8rem;
   overflow: hidden;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .pixel-user-trigger {
-  border: 2px solid transparent;
-  clip-path: polygon(
-    0 4px, 4px 4px, 4px 0,
-    calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px,
-    100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%,
-    4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px)
-  );
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
   transition:
-    transform 0.07s ease-out,
-    box-shadow 0.07s ease-out,
-    background 0.15s ease,
-    border-color 0.15s ease;
+    background-color 0.16s var(--ease),
+    border-color 0.16s var(--ease);
 
   &:hover {
-    background: rgba($neon-cyan, 0.1);
-    border-color: rgba($neon-cyan, 0.4);
-    box-shadow: 0 0 10px rgba($neon-cyan, 0.2);
+    background: var(--surface-hover);
+    border-color: var(--border);
   }
 
   &:active {
-    transform: translate(1px, 2px);
-    background: rgba($neon-cyan, 0.15);
-    box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.2);
+    background: var(--surface-3);
   }
+}
+
+.pixel-avatar {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--surface-2);
 }
 
 .pixel-chip {
-  background: rgba($neon-cyan, 0.1);
-  border: 2px solid rgba($neon-cyan, 0.4);
-  backdrop-filter: blur(10px);
-  box-shadow:
-    0 0 10px rgba($neon-cyan, 0.2),
-    inset 1px 1px 0 rgba(255, 255, 255, 0.05);
-  clip-path: polygon(
-    0 3px, 3px 3px, 3px 0,
-    calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px,
-    100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%,
-    3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px)
-  );
+  height: 34px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    background-color 0.16s var(--ease),
+    border-color 0.16s var(--ease);
 
-  @include pixel-press-btn;
+  i {
+    font-size: 11px;
+  }
+
+  &:hover {
+    background: var(--surface-3);
+    border-color: var(--border-strong);
+  }
 }
 
 .pixel-chip-label {
-  color: $pixel-text;
-  font-weight: 600;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.pixel-icon-accent {
+  color: var(--accent);
+}
+
+.pixel-text-muted {
+  color: var(--text-3);
 }
 
 .pixel-dropdown {
-  background: $pixel-dialog-bg;
-  border: 2px solid $pixel-border;
-  box-shadow:
-    0 0 30px rgba($neon-cyan, 0.3),
-    0 0 60px rgba($neon-magenta, 0.2),
-    0 10px 40px rgba(0, 0, 0, 0.6);
-  padding: 4px 0;
   z-index: 100;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
 }
 
 .pixel-dropdown-divider {
-  border-color: rgba($neon-cyan, 0.15);
+  padding: 6px 10px 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 .pixel-dropdown-item {
-  color: $pixel-text;
-  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
   border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
   transition:
-    transform 0.07s ease-out,
-    box-shadow 0.07s ease-out,
-    filter 0.07s ease-out,
-    background 0.12s ease;
+    background-color 0.15s var(--ease),
+    color 0.15s var(--ease);
 
   &:hover {
-    background: rgba($neon-cyan, 0.15);
-  }
-
-  &:active {
-    transform: translate(1px, 2px);
-
-    @include pixel-press-shadow;
-
-    filter: brightness(0.94);
+    background: var(--surface-hover);
+    color: var(--text);
   }
 }
 
 .pixel-dropdown-item--on {
-  background: rgba($neon-cyan, 0.22);
-  font-weight: 600;
-  color: $neon-cyan-light;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 500;
+
+  &:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
 }
 
 .pixel-menu-link {
-  color: $pixel-text;
+  display: flex;
+  align-items: center;
+  padding: 9px 10px;
+  border-radius: var(--radius-xs);
+  color: var(--text-2);
+  font-size: 13px;
   text-decoration: none;
   transition:
-    transform 0.07s ease-out,
-    box-shadow 0.07s ease-out,
-    background 0.15s ease;
+    background-color 0.15s var(--ease),
+    color 0.15s var(--ease);
 
   &:hover {
-    background: rgba($neon-cyan, 0.12);
-  }
-
-  &:active {
-    transform: translate(1px, 2px);
-
-    @include pixel-press-shadow;
-
-    background: rgba($neon-cyan, 0.18);
+    background: var(--surface-hover);
+    color: var(--text);
   }
 }
 
 .pixel-menu-danger {
-  color: #c97b7b;
+  color: var(--danger);
+
+  &:hover {
+    background: var(--danger-soft);
+    color: var(--danger);
+  }
 }
 
 .pixel-hr {
+  margin: 6px 4px;
   border: none;
-  border-top: 2px dashed rgba($neon-cyan, 0.15);
+  border-top: 1px solid var(--border);
 }
 
-.pixel-avatar {
-  border: 2px solid $neon-cyan;
-  box-shadow: 0 0 10px rgba($neon-cyan, 0.4), 0 0 20px rgba($neon-cyan, 0.2);
-  clip-path: polygon(
-    0 4px, 4px 4px, 4px 0,
-    calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px,
-    100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%,
-    4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px)
-  );
+@media (width <= 640px) {
+  .pixel-nav {
+    padding: 0 12px;
+  }
+
+  .pixel-nav-user {
+    display: none;
+  }
+
+  .pixel-title {
+    font-size: 15px;
+  }
 }
 </style>
