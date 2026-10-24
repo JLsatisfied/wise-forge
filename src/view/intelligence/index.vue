@@ -17,7 +17,18 @@ import NavBar from './components/NavBar.vue'
 import SideBar from './components/SideBar.vue'
 import ChatMessageItem from './components/ChatMessageItem.vue'
 import ChatInput from './components/ChatInput.vue'
-import { useConversationBranches, type BranchNode } from './useConversationBranches'
+import {
+  useConversationBranches,
+  type BranchNode,
+  type BranchSnapshot
+} from './useConversationBranches'
+import {
+  useDeepseekHistory,
+  clipTitle,
+  createDeepseekId,
+  type DeepseekConversation,
+  type DeepseekConversationMeta
+} from './useDeepseekHistory'
 import { useRouter } from 'vue-router'
 import {
   allInstall,
@@ -200,6 +211,21 @@ const {
   restore
 } = useConversationBranches()
 
+// DeepSeek 专属最近对话：没有 category，按用户保存在浏览器本地
+const {
+  conversations: deepseekConversations,
+  groups: deepseekGroups,
+  load: loadDeepseekHistory,
+  upsert: upsertDeepseekHistory,
+  updateMeta: updateDeepseekMeta,
+  remove: removeDeepseekHistory,
+  getTree: getDeepseekTree
+} = useDeepseekHistory(() => nickAll.nicknameId)
+// 当前正在编辑的 DeepSeek 对话 id，为空表示尚未落库的新对话
+const activeDeepseekId = ref('')
+// 打开历史对话是异步读 IndexedDB，用序号丢弃过期的打开请求
+let deepseekOpenRequest = 0
+
 const streamingNodeId = ref('')
 const isAnchoring = ref(false)
 
@@ -346,6 +372,9 @@ const getUser = (showClassInformation: boolean = true) => {
       nickAll.appid = appid
       nickAll.userNickname = username
       editAll.value = res.data.users
+      loadDeepseekHistory().catch(() => {
+        showMessage('历史对话读取失败，请检查浏览器存储权限', 'warning')
+      })
       if (showClassInformation) {
         getClassInformation(nickAll.nicknameId)
       }
@@ -477,7 +506,77 @@ const copyCode = (ele: string) => {
 // 保存当前对话：线性历史 + 完整分支树，保证重新进入后仍能看到所有版本和翻页器
 // 串行写入，避免快速切换版本时多次覆盖请求互相交错
 let saveChain: Promise<void> = Promise.resolve()
+
+// DeepSeek 对话没有 category：把完整分支树写到本地历史，标题取首条用户消息
+const saveDeepseekSnapshot = (tree: BranchSnapshot, boundId: string, firstUserText: string) => {
+  const now = Date.now()
+  const persist = (entry: DeepseekConversation) => {
+    upsertDeepseekHistory(entry).catch(() => {
+      showMessage('对话保存失败，请检查浏览器存储空间', 'error')
+    })
+  }
+  if (boundId) {
+    const existing = deepseekConversations.value.find(item => item.id === boundId)
+    if (existing) {
+      persist({ ...existing, updatedAt: now, tree })
+      return
+    }
+  }
+  const entry: DeepseekConversation = {
+    id: createDeepseekId(),
+    title: clipTitle(firstUserText),
+    createdAt: now,
+    updatedAt: now,
+    tree
+  }
+  // 新对话：仍停留在 DeepSeek 模式且没有绑定其它记录时，指向新记录
+  // 已有绑定：只有用户没有切走（仍指向同一条）时才保持绑定
+  const shouldBind = boundId
+    ? activeDeepseekId.value === boundId
+    : !activeDeepseekId.value &&
+      currentModel.value === CONSTATNS.MODELS.DEEPSEEK_V4 &&
+      currentIndex.value == 0
+  if (shouldBind) activeDeepseekId.value = entry.id
+  persist(entry)
+}
+
+// 同步保存（版本翻页等场景，内容已经渲染完毕）
+const saveDeepseekMessage = () => {
+  if (!allText.length) return
+  const path = pathTo(activeLeafId.value)
+  if (path.length < 2) return
+  const firstUser = path.find(node => node.role === 'user')
+  saveDeepseekSnapshot(serialize(), activeDeepseekId.value, firstUser?.content || '')
+}
+
+// 流式结束后保存：答案 HTML 由 worker 异步渲染，必须等最终渲染完成再落盘，
+// 否则短回答会在快照里留下空的 adminText（表现为只有标题、没有内容）
+const finalizeDeepseekTurn = (node: BranchNode | null, rawAnswer: string) => {
+  if (!node || !node.adminContent) {
+    saveDeepseekMessage()
+    return
+  }
+  const conversationId = activeDeepseekId.value
+  const firstUser = pathTo(activeLeafId.value).find(item => item.role === 'user')
+  const tree = serialize()
+  const snapshotNode = tree.nodes.find(item => item.id === node.id)
+  renderInWorker(rawAnswer)
+    .then(html => {
+      // 直接写节点，避免切换会话后 allText 下标已经指向别的对话
+      node.adminContent!.adminText = html
+      if (snapshotNode?.adminContent) snapshotNode.adminContent.adminText = html
+    })
+    .catch(() => {})
+    .then(() => {
+      saveDeepseekSnapshot(tree, conversationId, firstUser?.content || '')
+    })
+}
+
 const saveMessage = () => {
+  if (currentModel.value === CONSTATNS.MODELS.DEEPSEEK_V4 && currentIndex.value == 0) {
+    saveDeepseekMessage()
+    return
+  }
   if (currentModel.value !== CONSTATNS.MODELS.SPARK_ULTRA || currentIndex.value == 0) return
   if (!allText.length) return
   const dialogue = allText.map(item => ({
@@ -601,6 +700,7 @@ const buildDeepSeekContext = (userNodeId: string): requestObject[] => {
 const finishStream = (status: 'done' | 'error' | 'stopped', persist = status !== 'error') => {
   if (!streamingNodeId.value) return
   const node = getNode(streamingNodeId.value)
+  const rawAnswer = responce
   if (node) {
     node.status = status
     node.raw = responce
@@ -620,7 +720,13 @@ const finishStream = (status: 'done' | 'error' | 'stopped', persist = status !==
   nextTick(() => {
     copyCode('.code-block-header__copy')
   })
-  if (persist) saveMessage()
+  if (persist) {
+    if (currentModel.value === CONSTATNS.MODELS.DEEPSEEK_V4 && currentIndex.value == 0) {
+      finalizeDeepseekTurn(node, rawAnswer)
+    } else {
+      saveMessage()
+    }
+  }
   closeScroll.value = false
   clearFileText()
 }
@@ -985,6 +1091,9 @@ const selectMessage = <T extends categories>(item: T) => {
     finishStream('stopped', false)
   }
   stopSpeech()
+  // 离开 DeepSeek 对话，后续回答不再写回本地历史
+  deepseekOpenRequest++
+  activeDeepseekId.value = ''
   // replacement()
   currentModel.value = CONSTATNS.MODELS.SPARK_ULTRA
   // 讯飞模型不支持联网搜索
@@ -1004,6 +1113,153 @@ const selectMessage = <T extends categories>(item: T) => {
   closeScroll.value = false
   lastScrollPosition.value = 0
   onceQueryDialogue(category_id, 0)
+}
+
+// 新建一条 DeepSeek 对话：清空当前会话，回到无角色的默认状态
+const startDeepseekChat = () => {
+  if (isAnswering.value) {
+    showMessage(CONSTATNS.MESSAGES.ANSWERING, 'warning')
+    return
+  }
+  if (ctrl.value) ctrl.value.abort()
+  stopSpeech()
+  if (streamingNodeId.value) finishStream('stopped', false)
+  // 丢弃仍在读取中的历史对话请求
+  deepseekOpenRequest++
+  currentModel.value = CONSTATNS.MODELS.DEEPSEEK_V4
+  currentIndex.value = 0
+  revealAlways.value = {
+    revealId: 0,
+    revealName: CONSTATNS.DEFAULT.AI_NAME,
+    revealImg: CONSTATNS.DEFAULT.AI_AVATAR
+  }
+  roleContent.value = ''
+  activeDeepseekId.value = ''
+  allText.splice(0, allText.length)
+  resetBranches()
+  streamingNodeId.value = ''
+  responce = ''
+  timeCount.value = 0
+  recordLength.value = 0
+  editIndex.value = -1
+  isAnswering.value = false
+  isStopText.value = false
+  closeScroll.value = false
+  lastScrollPosition.value = 0
+}
+
+// 旧快照可能因为渲染时序缺少回答 HTML，用原始 markdown 补渲染
+const rehydrateAnswers = () => {
+  pathTo(activeLeafId.value).forEach(node => {
+    if (node.role !== 'assistant' || !node.adminContent || !node.raw) return
+    if (node.adminContent.adminText) return
+    renderInWorker(node.raw)
+      .then(html => {
+        if (node.adminContent) node.adminContent.adminText = html
+        nextTick(() => copyCode('.code-block-header__copy'))
+      })
+      .catch(() => {})
+  })
+}
+
+// 打开一条 DeepSeek 历史对话：按 id 从 IndexedDB 读出分支树后还原
+const openDeepseekConversation = async (item: DeepseekConversationMeta) => {
+  if (isAnswering.value) {
+    showMessage(CONSTATNS.MESSAGES.ANSWERING, 'warning')
+    return
+  }
+  if (activeDeepseekId.value === item.id) return
+  const requestId = ++deepseekOpenRequest
+  let tree: BranchSnapshot | null = null
+  try {
+    tree = await getDeepseekTree(item.id)
+  } catch {
+    tree = null
+  }
+  // 读取期间用户又点了别的会话 / 新建了对话 / 开始提问，放弃这次打开
+  if (requestId !== deepseekOpenRequest || isAnswering.value) return
+  if (ctrl.value) ctrl.value.abort()
+  stopSpeech()
+  if (streamingNodeId.value) finishStream('stopped', false)
+  if (!tree || !restore(tree)) {
+    // 快照不可用时 restore 可能已重置分支，同步清空视图避免残留旧消息
+    activeDeepseekId.value = ''
+    allText.splice(0, allText.length)
+    timeCount.value = 0
+    recordLength.value = 0
+    streamingNodeId.value = ''
+    responce = ''
+    showMessage('这段对话记录已损坏，无法打开', 'warning')
+    return
+  }
+  currentModel.value = CONSTATNS.MODELS.DEEPSEEK_V4
+  currentIndex.value = 0
+  revealAlways.value = {
+    revealId: 0,
+    revealName: CONSTATNS.DEFAULT.AI_NAME,
+    revealImg: CONSTATNS.DEFAULT.AI_AVATAR
+  }
+  roleContent.value = ''
+  activeDeepseekId.value = item.id
+  const items = buildAllText(viewPath.value)
+  allText.splice(0, allText.length, ...items)
+  timeCount.value = items.length
+  recordLength.value = items.length
+  streamingNodeId.value = ''
+  responce = ''
+  isAnswering.value = false
+  isStopText.value = false
+  editIndex.value = -1
+  closeScroll.value = false
+  lastScrollPosition.value = 0
+  rehydrateAnswers()
+  nextTick(() => {
+    copyCode('.code-block-header__copy')
+    scrollToBottom()
+  })
+}
+
+// 删除一条 DeepSeek 历史对话
+const removeDeepseekConversation = async (item: DeepseekConversationMeta) => {
+  if (isAnswering.value && activeDeepseekId.value === item.id) {
+    showMessage(CONSTATNS.MESSAGES.ANSWERING, 'warning')
+    return
+  }
+  try {
+    await removeDeepseekHistory(item.id)
+  } catch {
+    showMessage('删除对话失败，请稍后再试', 'error')
+    return
+  }
+  if (activeDeepseekId.value !== item.id) return
+  // 删除的是当前会话：作废仍在读取中的打开请求，并清空视图
+  deepseekOpenRequest++
+  activeDeepseekId.value = ''
+  allText.splice(0, allText.length)
+  resetBranches()
+  streamingNodeId.value = ''
+  responce = ''
+  timeCount.value = 0
+  recordLength.value = 0
+  showMessage(CONSTATNS.MESSAGES.DELETE_SUCCESS, 'success')
+}
+
+// 置顶 / 取消置顶一条 DeepSeek 对话
+const toggleDeepseekPinned = async (item: DeepseekConversationMeta) => {
+  try {
+    await updateDeepseekMeta(item.id, { pinned: !item.pinned })
+  } catch {
+    showMessage(item.pinned ? '取消置顶失败，请稍后再试' : '置顶失败，请稍后再试', 'error')
+  }
+}
+
+// 重命名一条 DeepSeek 对话
+const renameDeepseekConversation = async (payload: { id: string; title: string }) => {
+  try {
+    await updateDeepseekMeta(payload.id, { title: payload.title })
+  } catch {
+    showMessage('重命名失败，请稍后再试', 'error')
+  }
 }
 
 // 停止sse输出
@@ -1047,6 +1303,11 @@ const clear = () => {
       showMessage(CONSTATNS.MESSAGES.NO_MESSAGES, 'warning')
     }
   } else {
+    // DeepSeek 对话：清除当前会话的同时从本地历史里移除
+    if (activeDeepseekId.value) {
+      removeDeepseekHistory(activeDeepseekId.value)
+      activeDeepseekId.value = ''
+    }
     allText.splice(0, allText.length)
     resetBranches()
     streamingNodeId.value = ''
@@ -1064,20 +1325,83 @@ const exportConversation = () => {
   }
   const title = revealAlways.value.revealName || 'AI对话'
   const date = new Date().toLocaleString('zh-CN')
+  // 跟随当前页面主题，深色页面导出深色卷轴
+  const isDark = document.documentElement.classList.contains('dark')
+  // 取值与 src/styles/theme.scss 保持一致
+  const palette = isDark
+    ? {
+        bg: '#141519',
+        surface: '#1d1f25',
+        surface2: '#23252c',
+        surface3: '#2a2d35',
+        border: '#2c2f38',
+        borderStrong: '#3b3f4a',
+        text: '#e9eaee',
+        text2: '#a9adb7',
+        text3: '#7d828e',
+        accent: '#7c8cff',
+        accentActive: '#6b7cf5',
+        accentSoft: 'rgba(124, 140, 255, 0.14)',
+        accentRing: 'rgba(124, 140, 255, 0.3)',
+        warning: '#fbbf24',
+        shadowXs: '0 1px 2px rgba(0, 0, 0, 0.24)',
+        shadowSm: '0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.22)'
+      }
+    : {
+        bg: '#f6f7f9',
+        surface: '#ffffff',
+        surface2: '#f7f8fa',
+        surface3: '#eef1f6',
+        border: '#e6e8ee',
+        borderStrong: '#d8dce5',
+        text: '#1d2129',
+        text2: '#535a68',
+        text3: '#8b92a1',
+        accent: '#4f6ef7',
+        accentActive: '#3451d1',
+        accentSoft: 'rgba(79, 110, 247, 0.1)',
+        accentRing: 'rgba(79, 110, 247, 0.22)',
+        warning: '#d97706',
+        shadowXs: '0 1px 2px rgba(16, 24, 40, 0.04)',
+        shadowSm: '0 1px 2px rgba(16, 24, 40, 0.05), 0 2px 6px rgba(16, 24, 40, 0.04)'
+      }
+
+  // 联网资料：导出成可展开的链接列表
+  const buildSources = (results: searchResultObject[]) => {
+    if (!results.length) return ''
+    const items = results
+      .map((source, index) => {
+        const label = escapeHtml(source.title || source.url || `资料 ${index + 1}`)
+        const link = /^https?:\/\//i.test(source.url || '')
+          ? `<a href="${escapeHtml(source.url)}" target="_blank" rel="noopener noreferrer">${label}</a>`
+          : `<span>${label}</span>`
+        const site = source.site_name ? `<em>${escapeHtml(source.site_name)}</em>` : ''
+        return `<li>${link}${site}</li>`
+      })
+      .join('')
+    return `<details class="sources"><summary><span class="sources-ico">🌐</span>联网资料 ${results.length} 条</summary><ol>${items}</ol></details>`
+  }
+
   const messages = allText
     .map(item => {
-      let html = ''
+      const rows: string[] = []
       // 用户消息
-      html += `<div class="msg msg--user"><div class="msg__bubble msg__bubble--user">${escapeHtml(item.userText)}</div></div>`
-      // 思考内容
-      if (item.thinkContent?.thinkText) {
-        html += `<div class="msg msg--ai"><div class="msg__bubble msg__bubble--think"><div class="think-label">贤者沉思</div>${item.thinkContent.thinkText}</div></div>`
+      rows.push(
+        `<div class="row row--user"><div class="bubble bubble--user">${escapeHtml(item.userText)}</div><img class="avatar" src="${escapeHtml(nickAll.nickImg)}" alt="用户" onerror="this.remove()"></div>`
+      )
+      // 思考内容 + AI 回复
+      const think = item.thinkContent?.thinkText
+        ? `<div class="think"><div class="think-label">贤者沉思</div><div class="md">${item.thinkContent.thinkText}</div></div>`
+        : ''
+      const answer = item.adminContent.adminText
+        ? `<div class="md">${item.adminContent.adminText}</div>`
+        : ''
+      if (think || answer) {
+        rows.push(
+          `<div class="row row--ai"><img class="avatar" src="${escapeHtml(aiAvatarUrl.value)}" alt="AI" onerror="this.remove()"><div class="bubble bubble--ai">${buildSources(item.searchResults || [])}${think}${answer}</div></div>`
+        )
       }
-      // AI 回复
-      if (item.adminContent.adminText) {
-        html += `<div class="msg msg--ai"><div class="msg__bubble msg__bubble--ai">${item.adminContent.adminText}</div></div>`
-      }
-      return html
+      return `<section class="turn">${rows.join('')}</section>`
     })
     .join('\n')
 
@@ -1087,50 +1411,189 @@ const exportConversation = () => {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${escapeHtml(title)} - 对话导出</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
 <style>
+  :root {
+    color-scheme: ${isDark ? 'dark' : 'light'};
+    --bg: ${palette.bg};
+    --surface: ${palette.surface};
+    --surface-2: ${palette.surface2};
+    --surface-3: ${palette.surface3};
+    --border: ${palette.border};
+    --border-strong: ${palette.borderStrong};
+    --text: ${palette.text};
+    --text-2: ${palette.text2};
+    --text-3: ${palette.text3};
+    --accent: ${palette.accent};
+    --accent-active: ${palette.accentActive};
+    --accent-soft: ${palette.accentSoft};
+    --accent-ring: ${palette.accentRing};
+    --warning: ${palette.warning};
+    --shadow-xs: ${palette.shadowXs};
+    --shadow-sm: ${palette.shadowSm};
+    --font-sans: ui-sans-serif, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    --font-mono: "SFMono-Regular", consolas, "Liberation Mono", menlo, monospace;
+  }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
   body {
-    font-family: ui-sans-serif, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
-    background: #f6f7f9; color: #1d2129; min-height: 100vh;
-    padding: 40px 20px;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
   }
-  .container { max-width: 900px; margin: 0 auto; }
-  .header {
-    text-align: center; padding-bottom: 28px; margin-bottom: 32px;
-    border-bottom: 1px solid #e6e8ee;
+  .page { max-width: 900px; margin: 0 auto; padding: 40px 24px 56px; }
+  .page-header {
+    padding-bottom: 24px; margin-bottom: 28px;
+    border-bottom: 1px solid var(--border); text-align: center;
   }
-  .header h1 { font-size: 24px; font-weight: 600; color: #1d2129; margin-bottom: 8px; }
-  .header p { font-size: 13px; color: #8b92a1; }
-  .msg { display: flex; margin-bottom: 20px; }
-  .msg--user { justify-content: flex-end; }
-  .msg--ai { justify-content: flex-start; }
-  .msg__bubble { max-width: 78%; padding: 12px 16px; font-size: 14px; line-height: 1.75; word-break: break-word; border-radius: 14px; }
-  .msg__bubble--user {
-    background: #4f6ef7; border: 1px solid #4f6ef7; color: #fff; border-bottom-right-radius: 4px;
+  .page-header h1 { margin-bottom: 8px; color: var(--text); font-size: 22px; font-weight: 600; letter-spacing: 0.5px; }
+  .page-meta { color: var(--text-3); font-size: 13px; }
+  .turn { display: flex; flex-direction: column; }
+  .turn + .turn { margin-top: 20px; }
+  .row { display: flex; gap: 8px; min-width: 0; }
+  .row + .row { margin-top: 12px; }
+  .row--user { justify-content: flex-end; }
+  .row--ai { justify-content: flex-start; }
+  .avatar {
+    flex: 0 0 auto; width: 36px; height: 36px;
+    border: 1px solid var(--border); border-radius: 50%;
+    background: var(--surface-2); object-fit: cover;
   }
-  .msg__bubble--ai {
-    background: #fff; border: 1px solid #e6e8ee; color: #1d2129; border-bottom-left-radius: 4px;
-    box-shadow: 0 1px 2px rgba(16,24,40,0.05);
+  .bubble {
+    min-width: 0; max-width: 82%; padding: 12px 16px;
+    border-radius: 16px; font-size: 14px; line-height: 1.75; overflow-wrap: break-word;
   }
-  .msg__bubble--ai pre { background: #1d2027; color: #e9eaee; border-radius: 10px; padding: 12px; overflow-x: auto; font-size: 13px; margin: 8px 0; }
-  .msg__bubble--ai code { font-family: "Cascadia Code", Consolas, monospace; font-size: 13px; background: #f2f4f8; color: #3451d1; padding: 2px 5px; border-radius: 4px; }
-  .msg__bubble--ai pre code { background: none; color: inherit; padding: 0; }
-  .msg__bubble--think {
-    background: #f7f8fa; border: 1px solid #e6e8ee; color: #535a68; font-size: 13px;
-    border-top-left-radius: 4px;
+  .bubble--user {
+    border: 1px solid var(--accent); border-radius: 16px 16px 4px;
+    background: var(--accent); color: #fff; white-space: pre-wrap;
   }
-  .think-label { font-weight: 600; color: #8b92a1; font-size: 12px; margin-bottom: 6px; }
-  .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e6e8ee; font-size: 12px; color: #8b92a1; }
+  .bubble--ai {
+    border: 1px solid var(--border); border-radius: 16px 16px 16px 4px;
+    background: var(--surface); color: var(--text); box-shadow: var(--shadow-xs);
+  }
+  .page-footer {
+    margin-top: 40px; padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--text-3); font-size: 12px; text-align: center;
+  }
+  /* 联网资料 */
+  .sources {
+    margin-bottom: 12px; border: 1px solid var(--border); border-radius: 10px;
+    background: var(--surface-2);
+  }
+  .sources > summary {
+    display: flex; align-items: center; gap: 7px;
+    padding: 7px 12px; color: var(--text-2); font-size: 12px;
+    cursor: pointer; list-style: none;
+  }
+  .sources > summary::-webkit-details-marker { display: none; }
+  .sources-ico { color: var(--accent); font-size: 12px; }
+  .sources ol {
+    margin: 0; padding: 2px 14px 12px 32px;
+    color: var(--text-2); font-size: 12.5px; line-height: 1.8;
+  }
+  .sources li { margin: 2px 0; }
+  .sources li em { margin-left: 8px; color: var(--text-3); font-size: 11px; font-style: normal; }
+  .sources a { color: var(--accent); text-decoration: none; }
+  .sources a:hover { text-decoration: underline; }
+  /* 思考过程 */
+  .think {
+    margin-bottom: 12px; padding: 10px 12px 10px 14px;
+    border-left: 2px solid var(--border-strong); border-radius: 0 8px 8px 0;
+    background: var(--surface-2);
+  }
+  .think-label { margin-bottom: 4px; color: var(--warning); font-size: 12px; font-weight: 600; }
+  .think .md { color: var(--text-3); font-size: 13px; }
+  /* 回答排版 */
+  .md { line-height: 1.75; overflow-wrap: break-word; }
+  .md > :first-child { margin-top: 0; }
+  .md p { margin: 0 0 10px; }
+  .md p:last-child { margin-bottom: 0; }
+  .md h1, .md h2, .md h3, .md h4 { margin: 16px 0 8px; color: var(--text); font-weight: 600; line-height: 1.4; }
+  .md h1 { font-size: 20px; }
+  .md h2 { font-size: 18px; }
+  .md h3 { font-size: 16px; }
+  .md h4 { font-size: 14px; }
+  .md ul, .md ol { margin: 8px 0 10px; padding-left: 22px; }
+  .md ul { list-style: disc; }
+  .md ol { list-style: decimal; }
+  .md li { margin: 4px 0; }
+  .md blockquote {
+    margin: 10px 0; padding: 8px 14px;
+    border-left: 3px solid var(--border-strong); border-radius: 0 8px 8px 0;
+    background: var(--surface-2); color: var(--text-2);
+  }
+  .md a { color: var(--accent); text-decoration: none; }
+  .md a:hover { text-decoration: underline; }
+  .md img { max-width: 100%; height: auto; border-radius: 8px; }
+  .md hr { height: 1px; margin: 16px 0; border: 0; background: var(--border); }
+  .md table { width: 100%; margin: 10px 0; border-collapse: collapse; font-size: 13px; }
+  .md th { padding: 8px 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font-weight: 600; text-align: left; }
+  .md td { padding: 8px 10px; border: 1px solid var(--border); color: var(--text-2); }
+  .md code {
+    padding: 2px 5px; border-radius: 4px;
+    background: var(--surface-3); color: var(--accent-active);
+    font-family: var(--font-mono); font-size: 0.92em;
+  }
+  /* 代码块 */
+  .md .pre-code-box {
+    margin: 12px 0; border: 1px solid #30333c; border-radius: 10px;
+    overflow: hidden; background: #1b1d23;
+  }
+  .md .pre-code-header {
+    display: flex; align-items: center; justify-content: space-between;
+    height: 38px; padding: 0 14px;
+    background: #23252c; color: #a9adb7; font-size: 12px;
+  }
+  .md .code-block-header__lang { color: #c7cad2; font-size: 12px; font-weight: 500; }
+  /* 导出文件里复制 / 下载按钮不可用，直接隐藏 */
+  .md .code-block-header__actions { display: none; }
+  .md .pre-code { overflow-x: auto; }
+  .md .pre-code code.hljs {
+    display: block; padding: 14px 16px;
+    background: #1b1d23; color: #e6e8ee;
+    font-family: var(--font-mono); font-size: 13px; line-height: 1.65;
+    white-space: pre-wrap; overflow-wrap: break-word;
+  }
+  .md pre code.hljs, .md .pre-code-box code { padding: 0; border-radius: 0; background: none; font-size: 13px; }
+  /* highlight.js a11y-dark 配色，与应用内一致 */
+  .hljs-comment, .hljs-quote { color: #d4d0ab; }
+  .hljs-variable, .hljs-template-variable, .hljs-tag, .hljs-name, .hljs-selector-id,
+  .hljs-selector-class, .hljs-regexp, .hljs-deletion { color: #ffa07a; }
+  .hljs-number, .hljs-built_in, .hljs-literal, .hljs-type, .hljs-params, .hljs-meta,
+  .hljs-link { color: #f5ab35; }
+  .hljs-attribute { color: #ffd700; }
+  .hljs-string, .hljs-symbol, .hljs-bullet, .hljs-addition { color: #abe338; }
+  .hljs-title, .hljs-section { color: #00e0e0; }
+  .hljs-keyword, .hljs-selector-tag { color: #dcc6e0; }
+  .hljs-emphasis { font-style: italic; }
+  .hljs-strong { font-weight: bold; }
+  /* 小屏适配与打印 */
+  @media (max-width: 640px) {
+    .page { padding: 24px 14px 40px; }
+    .bubble { max-width: 100%; }
+    .avatar { width: 30px; height: 30px; }
+  }
+  @media print {
+    .turn { break-inside: avoid; }
+    .bubble--ai { box-shadow: none; }
+  }
 </style>
 </head>
 <body>
-<div class="container">
-  <div class="header">
+<div class="page">
+  <header class="page-header">
     <h1>${escapeHtml(title)}</h1>
-    <p>导出时间：${date}　|　共 ${allText.length} 轮对话</p>
-  </div>
-  ${messages}
-  <div class="footer">由冒险者公会 · 未来智匠导出</div>
+    <p class="page-meta">导出时间：${date}　|　共 ${allText.length} 轮对话</p>
+  </header>
+  <main class="turns">
+    ${messages}
+  </main>
+  <footer class="page-footer">由冒险者公会 · 未来智匠导出</footer>
 </div>
 </body>
 </html>`
@@ -1577,10 +2040,17 @@ const openUserProfile = () => {
       :is-loading-categories="isLoadingCategories"
       :category-data="categoryData"
       :current-index="currentIndex"
+      :deepseek-groups="deepseekGroups"
+      :active-deepseek-id="activeDeepseekId"
       @add-classify="addClassify"
       @select-message="selectMessage"
       @remove-classify="removeClassify"
       @go-customer-service="goTocustomerService"
+      @new-deepseek-chat="startDeepseekChat"
+      @select-deepseek="openDeepseekConversation"
+      @remove-deepseek="removeDeepseekConversation"
+      @pin-deepseek="toggleDeepseekPinned"
+      @rename-deepseek="renameDeepseekConversation"
     />
     <!-- 主内容区 -->
     <div class="pixel-main">
@@ -1842,7 +2312,6 @@ const openUserProfile = () => {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  overflow-x: hidden;
   padding-right: 100px;
   padding-bottom: 8px;
   overflow-anchor: none;
