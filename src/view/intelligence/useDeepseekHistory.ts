@@ -196,7 +196,16 @@ const createIdbStorage = (db: IDBDatabase): HistoryStorage => ({
 
   async putMeta(userId, meta) {
     const tx = db.transaction(META_STORE, 'readwrite')
-    tx.objectStore(META_STORE).put({ ...meta, userId })
+    // 只写元信息字段：把分支树或其它额外字段带进来会导致结构化克隆失败
+    const stored: StoredMeta = {
+      id: meta.id,
+      userId,
+      title: meta.title || '未命名对话',
+      createdAt: meta.createdAt,
+      updatedAt: meta.updatedAt,
+      pinned: !!meta.pinned
+    }
+    tx.objectStore(META_STORE).put(stored)
     await transactionDone(tx)
   },
 
@@ -373,7 +382,14 @@ export const useDeepseekHistory = (getUserId: () => number | string) => {
 
   const upsert = async (entry: DeepseekConversation) => {
     // 先同步更新内存，保证侧边栏立即出现，也避免连续保存时重复建档
-    const { ...meta } = entry
+    // 列表里只保留元信息：分支树由 put 单独写进 tree 表，不能混进 meta
+    const meta: DeepseekConversationMeta = {
+      id: entry.id,
+      title: entry.title || '未命名对话',
+      createdAt: entry.createdAt,
+      updatedAt: entry.updatedAt,
+      pinned: !!entry.pinned
+    }
     const index = conversations.value.findIndex(item => item.id === entry.id)
     if (index >= 0) conversations.value.splice(index, 1, meta)
     else conversations.value.push(meta)
@@ -400,8 +416,14 @@ export const useDeepseekHistory = (getUserId: () => number | string) => {
     const index = conversations.value.findIndex(item => item.id === id)
     if (index < 0) return
     const previous = conversations.value[index]
-    // 用普通对象落库，避免把响应式代理交给 IndexedDB 结构化克隆
-    const next = { ...previous, ...patch }
+    // 用普通对象落库，避免把响应式代理或额外字段交给 IndexedDB 结构化克隆
+    const next: DeepseekConversationMeta = {
+      id: previous.id,
+      title: patch.title ?? previous.title,
+      createdAt: previous.createdAt,
+      updatedAt: previous.updatedAt,
+      pinned: patch.pinned ?? previous.pinned
+    }
     conversations.value.splice(index, 1, next)
     try {
       const storage = await getStorage()
