@@ -16,7 +16,7 @@ defineOptions({
 const isUiModule = ref('login')
 const dialogVisible = ref(false)
 const formRef = ref<FormInstance>()
-const text = ref<string>('时空旅者：现实与幻想的双重奏')
+const text = ref<string>('多模型对话 · 深度思考 · 联网搜索 · 版本回溯')
 const currentTextIndex = ref(0)
 const router = useRouter()
 const fileInput = ref<null | HTMLInputElement>(null)
@@ -28,22 +28,22 @@ const pubKey = ref('') // rsa公钥
 const features = [
   {
     icon: 'fas fa-comments',
-    title: 'AI 魔法对话',
-    desc: '多模型智能问答',
+    title: 'AI 对话',
+    desc: '多模型 · 深度思考',
     color: '#4f6ef7',
     bg: 'rgba(79, 110, 247, 0.1)'
   },
   {
     icon: 'fas fa-layer-group',
-    title: '模板工坊',
-    desc: '百变角色预设',
+    title: '角色模板',
+    desc: '预设角色，一键套用',
     color: '#d97706',
     bg: 'rgba(217, 119, 6, 0.1)'
   },
   {
     icon: 'fas fa-headset',
     title: '智能客服',
-    desc: '一键嵌入站点',
+    desc: '生成代码，嵌入网站',
     color: '#0ea5e9',
     bg: 'rgba(14, 165, 233, 0.1)'
   }
@@ -95,11 +95,11 @@ const passwordStrength = computed(() => {
   if (/[^a-zA-Z0-9]/.test(pwd)) score++
   const levels = [
     { level: 0, label: '', color: '', width: '0%' },
-    { level: 1, label: '弱不禁风', color: '#dc2626', width: '20%' },
-    { level: 2, label: '初入江湖', color: '#d97706', width: '40%' },
-    { level: 3, label: '勇者之盾', color: '#4f6ef7', width: '65%' },
-    { level: 4, label: '史诗护符', color: '#2563eb', width: '85%' },
-    { level: 5, label: '传说结界', color: '#16a34a', width: '100%' }
+    { level: 1, label: '太弱', color: '#dc2626', width: '20%' },
+    { level: 2, label: '较弱', color: '#d97706', width: '40%' },
+    { level: 3, label: '一般', color: '#4f6ef7', width: '65%' },
+    { level: 4, label: '较强', color: '#2563eb', width: '85%' },
+    { level: 5, label: '很强', color: '#16a34a', width: '100%' }
   ]
   return levels[Math.min(score, 5)]
 })
@@ -121,11 +121,11 @@ const resetData = reactive({
 
 const loginRules = reactive<FormRules>({
   user: [
-    { required: true, message: '请输入冒险者账号或者邮箱', trigger: 'blur' },
+    { required: true, message: '请输入账号或邮箱', trigger: 'blur' },
     {
       validator: (_rule: any, value: string, callback: Function) => {
         if (/[\u4e00-\u9fa5]/g.test(value)) {
-          callback(new Error('冒险者账号或邮箱不能使用中文'))
+          callback(new Error('账号或邮箱不能包含中文'))
         } else {
           callback()
         }
@@ -134,12 +134,12 @@ const loginRules = reactive<FormRules>({
     }
   ],
   password: [
-    { required: true, message: '请输入通行密令', trigger: 'blur' },
-    { min: 6, message: '密令长度不能小于6位', trigger: 'blur' },
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 8, message: '密码长度不能少于 8 位', trigger: 'blur' },
     {
       validator: (_rule: any, value: string, callback: Function) => {
         if (/[\u4e00-\u9fa5]/g.test(value)) {
-          callback(new Error('密令不能使用中文'))
+          callback(new Error('密码不能使用中文'))
         } else {
           callback()
         }
@@ -151,15 +151,15 @@ const loginRules = reactive<FormRules>({
 
 const registerRules = reactive<FormRules>({
   name: [
-    { required: true, message: '请输入冒险者名称', trigger: 'blur' },
-    { min: 2, message: '名称长度不能小于2位', trigger: 'blur' }
+    { required: true, message: '请输入昵称', trigger: 'blur' },
+    { min: 2, message: '昵称至少 2 个字符', trigger: 'blur' }
   ],
   user: [
-    { required: true, message: '请输入冒险者账号', trigger: 'blur' },
+    { required: true, message: '请输入账号', trigger: 'blur' },
     {
       validator: (_rule: any, value: string, callback: Function) => {
         if (/[\u4e00-\u9fa5]/g.test(value)) {
-          callback(new Error('冒险者账号不能使用中文'))
+          callback(new Error('账号不能包含中文'))
         } else {
           callback()
         }
@@ -168,25 +168,25 @@ const registerRules = reactive<FormRules>({
     }
   ],
   email: [
-    { required: true, message: '请输入冒险者邮箱', trigger: 'blur' },
+    { required: true, message: '请输入邮箱', trigger: 'blur' },
     {
       validator: (_rule: any, value: string, callback: Function) => {
         if (/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value)) {
           callback()
         } else {
-          callback(new Error('邮箱格式错误'))
+          callback(new Error('邮箱格式不正确'))
         }
       },
       trigger: 'blur'
     }
   ],
   password: [
-    { required: true, message: '请设置通行密令', trigger: 'blur' },
-    { min: 6, message: '密令长度不能小于6位', trigger: 'blur' },
+    { required: true, message: '请设置密码', trigger: 'blur' },
+    { min: 8, message: '密码长度不能少于 8 位', trigger: 'blur' },
     {
       validator: (_rule: any, value: string, callback: Function) => {
         if (/[\u4e00-\u9fa5]/g.test(value)) {
-          callback(new Error('密令不能使用中文'))
+          callback(new Error('密码不能使用中文'))
         } else {
           callback()
         }
@@ -195,11 +195,11 @@ const registerRules = reactive<FormRules>({
     }
   ],
   confirmPassword: [
-    { required: true, message: '请确认通行密令', trigger: 'blur' },
+    { required: true, message: '请再次输入密码', trigger: 'blur' },
     {
       validator: (_rule: any, value: string, callback: Function) => {
         if (value !== registerForm.password) {
-          callback(new Error('两次输入的密令不一致'))
+          callback(new Error('两次输入的密码不一致'))
         } else {
           callback()
         }
@@ -223,27 +223,27 @@ const registerRules = reactive<FormRules>({
 })
 
 const changeRules = reactive<FormRules>({
-  user: [{ required: true, message: '请输入冒险者账号', trigger: 'blur' }],
+  user: [{ required: true, message: '请输入账号', trigger: 'blur' }],
   password: [
-    { required: true, message: '请输入原通行密令', trigger: 'blur' },
-    { min: 6, message: '密令长度不能小于6位', trigger: 'blur' }
+    { required: true, message: '请输入当前密码', trigger: 'blur' },
+    { min: 8, message: '密码长度不能少于 8 位', trigger: 'blur' }
   ],
   newPassword: [
-    { required: true, message: '请输入新通行密令', trigger: 'blur' },
-    { min: 6, message: '密令长度不能小于6位', trigger: 'blur' }
+    { required: true, message: '请输入新密码', trigger: 'blur' },
+    { min: 8, message: '密码长度不能少于 8 位', trigger: 'blur' }
   ]
 })
 
 const resetRules = reactive<FormRules>({
-  user: [{ required: true, message: '请输入冒险者账号', trigger: 'blur' }],
+  user: [{ required: true, message: '请输入账号', trigger: 'blur' }],
   email: [
-    { required: true, message: '请输入冒险者邮箱', trigger: 'blur' },
+    { required: true, message: '请输入邮箱', trigger: 'blur' },
     {
       validator: (_rule: any, value: string, callback: Function) => {
         if (/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value)) {
           callback()
         } else {
-          callback(new Error('邮箱格式错误'))
+          callback(new Error('邮箱格式不正确'))
         }
       },
       trigger: 'blur'
@@ -290,8 +290,8 @@ const handleSubmit = async (formEl: FormInstance | undefined) => {
         userApi.login(data).then(res => {
           if (res.data.code == 0) {
             ElNotification({
-              title: '冒险开始!',
-              message: '欢迎进入未来智匠AI世界，勇敢的冒险者！',
+              title: '登录成功',
+              message: '欢迎回来，祝你使用愉快！',
               type: 'success',
               customClass: 'pixel-notify'
             })
@@ -300,7 +300,7 @@ const handleSubmit = async (formEl: FormInstance | undefined) => {
             isInvoke.value = false
           } else if (res.data.code == 1) {
             ElMessage({
-              message: '冒险者账号或者邮箱不存在',
+              message: '账号或邮箱不存在，请检查后重试',
               type: 'warning',
               offset: 200,
               plain: true
@@ -308,7 +308,7 @@ const handleSubmit = async (formEl: FormInstance | undefined) => {
             isInvoke.value = false
           } else if (res.data.code == 2) {
             ElMessage({
-              message: '冒险者账号或者密令不正确',
+              message: '账号或密码不正确',
               type: 'warning',
               offset: 200,
               plain: true
@@ -327,7 +327,7 @@ const handleSubmit = async (formEl: FormInstance | undefined) => {
       } else if (isUiModule.value == 'register') {
         if (!registerForm.img_url) {
           ElMessage({
-            message: '请上传头像',
+            message: '请先上传头像（支持 JPG / PNG，≤2MB）',
             type: 'warning',
             offset: 200,
             plain: true
@@ -339,7 +339,7 @@ const handleSubmit = async (formEl: FormInstance | undefined) => {
           isInvoke.value = false
           if (res.data.code == 0) {
             ElMessage({
-              message: '你已成功拥有冒险账册！',
+              message: '注册成功，请登录',
               type: 'success',
               offset: 200,
               plain: true
@@ -347,7 +347,7 @@ const handleSubmit = async (formEl: FormInstance | undefined) => {
             isUiModule.value = 'login'
           } else if (res.data.code == 1) {
             ElMessage({
-              message: '冒险者账号已存在',
+              message: '该账号已被注册',
               type: 'warning',
               offset: 200,
               plain: true
@@ -373,7 +373,7 @@ const handleSubmit = async (formEl: FormInstance | undefined) => {
           isInvoke.value = false
           if (res.data.code == 0) {
             ElMessage({
-              message: '通行密令修改成功',
+              message: '密码修改成功，请重新登录',
               type: 'success',
               offset: 200,
               plain: true
@@ -399,7 +399,7 @@ const handleSubmit = async (formEl: FormInstance | undefined) => {
           isInvoke.value = false
           if (res.data.code == 0) {
             ElMessage({
-              message: '通行密令重置成功，请前往邮箱查看',
+              message: '临时密码已发送到邮箱，请查收后尽快修改',
               type: 'success',
               offset: 200,
               plain: true
@@ -488,26 +488,25 @@ onMounted(() => {
         </div>
       </div>
       <div class="home-header-right">
-        <span class="status-pill"><span class="status-dot"></span>AI 服务在线</span>
+        <span class="status-pill"><span class="status-dot"></span>AI 对话工作台</span>
         <ThemeToggle />
       </div>
     </header>
 
     <main class="home-main">
       <section class="hero">
-        <span class="hero-eyebrow">AI 冒险创作平台</span>
-        <h1 class="title">冒险纪元</h1>
+        <span class="hero-eyebrow">多模型 AI 对话平台</span>
+        <h1 class="title">未来智匠</h1>
         <p class="hero-text">
-          <span class="typed">{{ typedText }}</span><span class="caret"></span>
+          <span class="typed">{{ typedText }}</span
+          ><span class="caret"></span>
         </p>
-        <p class="hero-desc">
-          与 AI 一起构建角色、续写故事、探索未知世界。简洁、专注、随时启程。
-        </p>
+        <p class="hero-desc">专注对话的 AI 工作台：多模型切换、深度思考、联网搜索与版本回溯。</p>
         <div class="hero-actions">
           <button class="primary-btn" type="button" @click="openDialog">
-            开启旅途 <i class="fas fa-arrow-right"></i>
+            注册 / 登录 <i class="fas fa-arrow-right"></i>
           </button>
-          <span class="hero-note"><i class="fas fa-circle-check"></i> 注册即可免费体验</span>
+          <span class="hero-note"><i class="fas fa-circle-check"></i> 注册后即可开始对话</span>
         </div>
 
         <div class="features">
@@ -529,8 +528,8 @@ onMounted(() => {
           <div class="visual-meta">
             <span class="meta-dot"></span>
             <div class="meta-copy">
-              <p class="meta-title">Serendale</p>
-              <p class="meta-sub">你的冒险，从这里开始</p>
+              <p class="meta-title">艾瑟兰</p>
+              <p class="meta-sub">你的 AI 对话与创作空间</p>
             </div>
           </div>
         </div>
@@ -552,11 +551,11 @@ onMounted(() => {
     </main>
 
     <footer class="bottom-bar">
-      <span class="bar-item">未来智匠</span>
+      <span class="bar-item">未来智匠 Wise Forge</span>
       <span class="bar-divider"></span>
-      <span class="bar-item">AI 冒险世界</span>
+      <span class="bar-item">AI 对话与创作平台</span>
       <span class="bar-divider"></span>
-      <span class="bar-item">静候勇者</span>
+      <span class="bar-item">多模型 · 流式输出 · 本地历史</span>
       <span class="copyright">© 2026 Wise Forge</span>
     </footer>
     <el-dialog
@@ -585,21 +584,21 @@ onMounted(() => {
             <h2>
               {{
                 isUiModule == 'login'
-                  ? '冒险者归来'
+                  ? '登录'
                   : isUiModule == 'register'
-                    ? '开启冒险之旅'
+                    ? '注册账号'
                     : isUiModule == 'newCode'
-                      ? '修改密令'
-                      : '重置密令'
+                      ? '修改密码'
+                      : '重置密码'
               }}
             </h2>
             <p>
               {{
                 isUiModule == 'login'
-                  ? '欢迎回到这片神奇的大陆'
+                  ? '欢迎回来，请登录你的账号'
                   : isUiModule == 'register'
-                    ? '准备好开始你的传奇了吗？'
-                    : '请输入你的信息'
+                    ? '创建账号，开始你的第一次对话'
+                    : '请输入你的账号信息'
               }}
             </p>
           </div>
@@ -615,7 +614,7 @@ onMounted(() => {
           @keyup.enter="handleSubmit(formRef)"
         >
           <el-form-item prop="user">
-            <el-input v-model="loginData.user" :prefix-icon="User" placeholder="冒险者账号或邮箱" />
+            <el-input v-model="loginData.user" :prefix-icon="User" placeholder="账号或邮箱" />
           </el-form-item>
 
           <el-form-item prop="password">
@@ -623,7 +622,7 @@ onMounted(() => {
               v-model="loginData.password"
               :prefix-icon="Lock"
               type="password"
-              placeholder="通行密令"
+              placeholder="密码"
               show-password
             />
           </el-form-item>
@@ -633,11 +632,11 @@ onMounted(() => {
               <span class="toggle-track" :class="{ 'toggle-on': freeLogin }">
                 <span class="toggle-thumb"></span>
               </span>
-              <span class="toggle-text">30日内记住冒险者</span>
+              <span class="toggle-text">30 天内自动登录</span>
             </div>
             <div>
-              <a class="forgot-link amend" @click="editCipher('newCode')">修改密令！</a>
-              <a class="forgot-link" @click="editCipher('resetPassword')">遗失密令？</a>
+              <a class="forgot-link amend" @click="editCipher('newCode')">修改密码</a>
+              <a class="forgot-link" @click="editCipher('resetPassword')">忘记密码？</a>
             </div>
           </div>
 
@@ -647,11 +646,11 @@ onMounted(() => {
             class="submit-button pixel-submit"
             :loading="isInvoke"
           >
-            进入世界
+            登录
           </el-button>
 
           <div class="switch-mode">
-            初来乍到？<a @click="switchMode('register')" class="switch-link">创建冒险者档案</a>
+            还没有账号？<a @click="switchMode('register')" class="switch-link">注册</a>
           </div>
         </el-form>
 
@@ -676,16 +675,12 @@ onMounted(() => {
             <el-input
               v-model="registerForm.name"
               :prefix-icon="VideoCameraFilled"
-              placeholder="为你的冒险者取个名字"
+              placeholder="输入昵称"
             />
           </el-form-item>
 
           <el-form-item prop="user">
-            <el-input
-              v-model="registerForm.user"
-              :prefix-icon="User"
-              placeholder="为你的冒险者想个账号"
-            />
+            <el-input v-model="registerForm.user" :prefix-icon="User" placeholder="输入账号" />
           </el-form-item>
 
           <el-form-item prop="password">
@@ -693,7 +688,7 @@ onMounted(() => {
               v-model="registerForm.password"
               :prefix-icon="Lock"
               type="password"
-              placeholder="设置通行密令"
+              placeholder="设置密码（至少 8 位，含字母和数字）"
               show-password
               :class="{ 'has-strength': registerForm.password }"
             />
@@ -719,17 +714,13 @@ onMounted(() => {
               v-model="registerForm.confirmPassword"
               :prefix-icon="Lock"
               type="password"
-              placeholder="确认通行密令"
+              placeholder="再次输入密码"
               show-password
             />
           </el-form-item>
 
           <el-form-item prop="email">
-            <el-input
-              v-model="registerForm.email"
-              :prefix-icon="Message"
-              placeholder="为你的冒险者绑定邮箱"
-            />
+            <el-input v-model="registerForm.email" :prefix-icon="Message" placeholder="绑定邮箱" />
           </el-form-item>
 
           <el-form-item prop="captcha" class="custom-form-item">
@@ -749,11 +740,11 @@ onMounted(() => {
             class="submit-button pixel-submit"
             :loading="isInvoke"
           >
-            开启冒险
+            注册
           </el-button>
 
           <div class="switch-mode">
-            已有账册？<a @click="switchMode('login')" class="switch-link">返回登录</a>
+            已有账号？<a @click="switchMode('login')" class="switch-link">返回登录</a>
           </div>
         </el-form>
 
@@ -767,7 +758,7 @@ onMounted(() => {
           @keyup.enter="handleSubmit(formRef)"
         >
           <el-form-item prop="user">
-            <el-input v-model="changeData.user" :prefix-icon="User" placeholder="冒险者账号" />
+            <el-input v-model="changeData.user" :prefix-icon="User" placeholder="账号" />
           </el-form-item>
 
           <el-form-item prop="password">
@@ -775,7 +766,7 @@ onMounted(() => {
               v-model="changeData.password"
               :prefix-icon="Lock"
               type="password"
-              placeholder="原通行密令"
+              placeholder="当前密码"
               show-password
             />
           </el-form-item>
@@ -785,7 +776,7 @@ onMounted(() => {
               v-model="changeData.newPassword"
               :prefix-icon="Lock"
               type="password"
-              placeholder="新通行密令"
+              placeholder="新密码（至少 8 位）"
               show-password
             />
           </el-form-item>
@@ -814,11 +805,11 @@ onMounted(() => {
           @keyup.enter="handleSubmit(formRef)"
         >
           <el-form-item prop="user">
-            <el-input v-model="resetData.user" :prefix-icon="User" placeholder="冒险者账号" />
+            <el-input v-model="resetData.user" :prefix-icon="User" placeholder="账号" />
           </el-form-item>
 
           <el-form-item prop="email">
-            <el-input v-model="resetData.email" :prefix-icon="Message" placeholder="邮箱账号" />
+            <el-input v-model="resetData.email" :prefix-icon="Message" placeholder="注册邮箱" />
           </el-form-item>
 
           <el-button
@@ -1146,7 +1137,9 @@ onMounted(() => {
 .feature-desc {
   color: var(--text-3);
   font-size: 11px;
-  white-space: nowrap;
+  line-height: 1.5;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .hero-visual {

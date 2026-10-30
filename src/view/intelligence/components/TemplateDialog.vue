@@ -35,8 +35,8 @@ const currentPage = computed({
 </script>
 
 <template>
-  <el-dialog class="template-list-dialog app-dialog" v-model="visible" title="冒险副本">
-    <p class="subtitle">挑选适合你的冒险副本</p>
+  <el-dialog class="template-list-dialog app-dialog" v-model="visible" title="角色模板">
+    <p class="subtitle">选择一个模板，开始一段新对话</p>
     <ul class="template-category">
       <li
         class="pixel-prompt-pill"
@@ -63,7 +63,7 @@ const currentPage = computed({
           class="action-use pixel-btn-primary cursor-pointer"
           @click="emit('cite-template', item)"
         >
-          进入副本
+          使用模板
         </div>
       </li>
     </ul>

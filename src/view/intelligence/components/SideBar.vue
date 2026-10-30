@@ -13,6 +13,9 @@ const props = defineProps<{
   categoryData: categories[]
   currentIndex: number
   deepseekGroups: DeepseekGroup[]
+  isLoadingDeepseek: boolean
+  /** null 表示还没有记录，按“可能有对话”展示骨架屏 */
+  deepseekHasHistory: boolean | null
   activeDeepseekId: string
 }>()
 
@@ -67,7 +70,7 @@ const openRowMenu = (event: MouseEvent, item: DeepseekConversationMeta) => {
 }
 
 // ===== 行内重命名 =====
-const RENAME_MAX_LENGTH = 30
+const RENAME_MAX_LENGTH = 60
 const renamingId = ref('')
 const renameText = ref('')
 
@@ -97,9 +100,8 @@ const cancelRename = () => {
 const commitRename = () => {
   const id = renamingId.value
   if (!id) return
-  const title = Array.from(renameText.value.replace(/\s+/g, ' ').trim())
-    .slice(0, RENAME_MAX_LENGTH)
-    .join('')
+  // 自动标题可能超过输入框上限，原样保存，避免重命名后又被截断
+  const title = renameText.value.replace(/\s+/g, ' ').trim()
   // 先退出编辑态，避免 blur 再次提交
   cancelRename()
   if (!title || title === findConversation(id)?.title) return
@@ -164,11 +166,11 @@ onUnmounted(() => {
       </div>
       <button class="sb-btn sb-btn--quest" @click="emit('add-classify')">
         <span class="sb-btn-icon"><i class="fas fa-plus"></i></span>
-        <span class="sb-btn-text">开启冒险</span>
+        <span class="sb-btn-text">新建对话</span>
       </button>
       <button class="sb-btn sb-btn--guild" @click="emit('go-customer-service')">
         <span class="sb-btn-icon"><i class="fas fa-headset"></i></span>
-        <span class="sb-btn-text">冒险者公会</span>
+        <span class="sb-btn-text">智能客服</span>
       </button>
       <button class="sb-btn sb-btn--adventure" @click="router.push('/adventure')">
         <span class="sb-btn-icon"><i class="fas fa-dungeon"></i></span>
@@ -181,7 +183,7 @@ onUnmounted(() => {
         <div class="p-1" v-for="n in 4" :key="'skeleton-sidebar-' + n">
           <div class="header effect pixel-list-item skeleton-list-item">
             <div class="list-icon">
-              <SkeletonLoader variant="avatar" width="40px" height="40px" />
+              <SkeletonLoader variant="avatar" width="32px" height="32px" />
             </div>
             <div class="header-right pixel-list-text" style="flex: 1; margin-left: 10px">
               <SkeletonLoader width="60%" height="14px" style="margin-bottom: 6px" />
@@ -246,7 +248,7 @@ onUnmounted(() => {
                     v-if="renamingId === item.id"
                     v-model="renameText"
                     class="sb-rename-input"
-                    maxlength="30"
+                    :maxlength="RENAME_MAX_LENGTH"
                     @click.stop
                     @keydown.enter.prevent="commitRename"
                     @keydown.esc.prevent="cancelRename"
@@ -271,7 +273,22 @@ onUnmounted(() => {
             </div>
           </div>
         </template>
-        <p v-else class="sb-deepseek-empty">暂无 DeepSeek 对话</p>
+        <!-- 有历史记录的用户在读取期间显示骨架；没有记录的直接显示空状态 -->
+        <template v-else-if="isLoadingDeepseek && deepseekHasHistory !== false">
+          <div v-for="n in 3" :key="'skeleton-deepseek-' + n" class="sb-group-item">
+            <div class="header pixel-list-item sb-deepseek-item skeleton-list-item">
+              <div class="list-icon">
+                <SkeletonLoader variant="avatar" width="32px" height="32px" />
+              </div>
+              <div class="header-right pixel-list-text">
+                <SkeletonLoader width="78%" height="13px" />
+                <SkeletonLoader width="52%" height="13px" style="margin-top: 6px" />
+              </div>
+            </div>
+          </div>
+        </template>
+        <!-- 加载中且没有历史时先留空，避免闪现“暂无” -->
+        <p v-else-if="!isLoadingDeepseek" class="sb-deepseek-empty">暂无 DeepSeek 对话</p>
       </div>
     </div>
 
@@ -523,8 +540,16 @@ onUnmounted(() => {
   font-size: 12px;
 }
 
-.sb-deepseek-title {
-  margin-bottom: 0 !important;
+/* 标题最多显示两行，超出部分省略；避免单行省略号和右侧“更多操作”的三点混淆 */
+.header-right .name.sb-deepseek-title {
+  display: -webkit-box;
+  margin-bottom: 0;
+  overflow: hidden;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .sb-deepseek-item {

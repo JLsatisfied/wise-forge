@@ -4,7 +4,7 @@ import type { BranchSnapshot } from './useConversationBranches'
 /** 一条 DeepSeek 对话的完整记录 */
 export interface DeepseekConversation {
   id: string
-  /** 取自首条用户消息，最多 15 个字；可手动重命名 */
+  /** 取自首条用户消息，保留完整内容；可手动重命名 */
   title: string
   createdAt: number
   updatedAt: number
@@ -32,16 +32,55 @@ const USER_INDEX = 'by_user'
 const LEGACY_PREFIX = 'wise-forge:deepseek-history:'
 /** 单用户最多保留的对话条数，超出后丢弃最久未使用的 */
 const MAX_CONVERSATIONS = 60
-export const TITLE_MAX_LENGTH = 15
+/** 旧版本会把标题截断到 15 个字，用于识别并修复这类历史记录 */
+const LEGACY_TITLE_MAX_LENGTH = 15
 
 const legacyKey = (userId: string) => `${LEGACY_PREFIX}${userId || 'guest'}`
 
-/** 会话标题：首条用户消息压缩空白后截断到 15 个字 */
-export const clipTitle = (text: string, max = TITLE_MAX_LENGTH): string => {
-  const normalized = (text || '').replace(/\s+/g, ' ').trim()
-  const title = Array.from(normalized).slice(0, max).join('')
-  return title || '未命名对话'
+/**
+ * 记录用户上次是否存有 DeepSeek 对话，供侧边栏在读取历史前决定是否展示骨架屏。
+ * 同时记住上次登录的用户，首次渲染时就能读到对应标记。
+ * 返回 null 表示还没有记录（第一次使用），按“可能有对话”处理。
+ */
+const HISTORY_FLAG_PREFIX = 'wise-forge:deepseek-has-history:'
+const LAST_USER_KEY = 'wise-forge:deepseek-last-user'
+
+const readHasHistoryFlag = (userId: string): boolean | null => {
+  try {
+    const raw = localStorage.getItem(`${HISTORY_FLAG_PREFIX}${userId}`)
+    if (raw === '1') return true
+    if (raw === '0') return false
+    return null
+  } catch {
+    return null
+  }
 }
+
+const writeHasHistoryFlag = (userId: string, hasHistory: boolean) => {
+  try {
+    localStorage.setItem(`${HISTORY_FLAG_PREFIX}${userId}`, hasHistory ? '1' : '0')
+    localStorage.setItem(LAST_USER_KEY, userId)
+  } catch {
+    // 存储不可用时静默忽略，不影响主流程
+  }
+}
+
+const readLastUserId = (): string => {
+  try {
+    return localStorage.getItem(LAST_USER_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
+const collapseWhitespace = (text: string) => (text || '').replace(/\s+/g, ' ').trim()
+
+/**
+ * 会话标题：取首条用户消息，只压缩空白、不截断。
+ * 列表里最多显示两行，完整内容可通过重命名查看/编辑。
+ */
+export const normalizeTitle = (text: string): string =>
+  collapseWhitespace(text) || '未命名对话'
 
 export const createDeepseekId = (): string =>
   `deepseek_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
@@ -362,22 +401,77 @@ export const groupDeepseekHistory = (
   ].filter(group => group.items.length > 0)
 }
 
+/** 快照里的第一条用户消息，用来还原早期被截断的标题 */
+const firstUserContent = (tree: BranchSnapshot): string => {
+  const nodes = tree.nodes || []
+  const root = nodes.find(node => node.role === 'user' && !node.parentId)
+  if (root) return root.content
+  return (
+    nodes
+      .filter(node => node.role === 'user')
+      .sort((a, b) => a.createdAt - b.createdAt)[0]?.content || ''
+  )
+}
+
 /** DeepSeek 对话历史：按用户隔离保存在 IndexedDB */
 export const useDeepseekHistory = (getUserId: () => number | string) => {
   const conversations = ref<DeepseekConversationMeta[]>([])
   const groups = computed(() => groupDeepseekHistory(conversations.value))
+  /** 用户信息请求期间也算加载中，骨架屏才能在整个等待过程中显示 */
+  const isLoading = ref(true)
+  /** 上一次会话是否留有对话（null 表示还没记录），决定加载时是否展示骨架屏 */
+  const lastUserId = readLastUserId()
+  const hasKnownHistory = ref<boolean | null>(
+    lastUserId ? readHasHistoryFlag(lastUserId) : null
+  )
 
   const currentUserId = () => String(getUserId() || 'guest')
 
-  const load = async () => {
-    const storage = await getStorage()
-    const userId = currentUserId()
-    // 申请持久化存储，降低浏览器清理历史的概率（不支持时静默忽略）
-    if (storage.kind === 'idb') {
-      navigator.storage?.persist?.().catch(() => {})
+  /**
+   * 旧版本把标题截断到 15 个字。加载后按分支树把这类标题补全，
+   * 只处理“旧标题正好等于首条消息前 15 字”的记录，不影响手动重命名。
+   */
+  const repairLegacyTitles = async (
+    storage: HistoryStorage,
+    userId: string,
+    list: DeepseekConversationMeta[]
+  ) => {
+    const targets = list.filter(item => Array.from(item.title).length === LEGACY_TITLE_MAX_LENGTH)
+    for (const meta of targets) {
+      try {
+        const tree = await storage.getTree(userId, meta.id)
+        if (!tree) continue
+        const full = normalizeTitle(firstUserContent(tree))
+        const legacy = Array.from(full).slice(0, LEGACY_TITLE_MAX_LENGTH).join('')
+        if (full === meta.title || legacy !== meta.title) continue
+        await storage.putMeta(userId, { ...meta, title: full })
+        const current = conversations.value.find(item => item.id === meta.id)
+        if (current) current.title = full
+      } catch (err) {
+        console.warn('[deepseek-history] 旧标题修复失败', err)
+      }
     }
-    await migrateLegacy(storage, userId)
-    conversations.value = await storage.all(userId)
+  }
+
+  const load = async () => {
+    isLoading.value = true
+    try {
+      const storage = await getStorage()
+      const userId = currentUserId()
+      // 用户信息已经拿到，按当前账号的标记校正一次（账号可能切换）
+      hasKnownHistory.value = readHasHistoryFlag(userId)
+      // 申请持久化存储，降低浏览器清理历史的概率（不支持时静默忽略）
+      if (storage.kind === 'idb') {
+        navigator.storage?.persist?.().catch(() => {})
+      }
+      await migrateLegacy(storage, userId)
+      conversations.value = await storage.all(userId)
+      hasKnownHistory.value = conversations.value.length > 0
+      writeHasHistoryFlag(userId, hasKnownHistory.value)
+      void repairLegacyTitles(storage, userId, conversations.value)
+    } finally {
+      isLoading.value = false
+    }
   }
 
   const upsert = async (entry: DeepseekConversation) => {
@@ -393,6 +487,8 @@ export const useDeepseekHistory = (getUserId: () => number | string) => {
     const index = conversations.value.findIndex(item => item.id === entry.id)
     if (index >= 0) conversations.value.splice(index, 1, meta)
     else conversations.value.push(meta)
+    hasKnownHistory.value = true
+    writeHasHistoryFlag(currentUserId(), true)
 
     const storage = await getStorage()
     const userId = currentUserId()
@@ -440,6 +536,8 @@ export const useDeepseekHistory = (getUserId: () => number | string) => {
     const storage = await getStorage()
     await storage.remove(currentUserId(), id)
     conversations.value = conversations.value.filter(item => item.id !== id)
+    hasKnownHistory.value = conversations.value.length > 0
+    writeHasHistoryFlag(currentUserId(), hasKnownHistory.value)
   }
 
   const getTree = async (id: string): Promise<BranchSnapshot | null> => {
@@ -447,5 +545,15 @@ export const useDeepseekHistory = (getUserId: () => number | string) => {
     return storage.getTree(currentUserId(), id)
   }
 
-  return { conversations, groups, load, upsert, updateMeta, remove, getTree }
+  return {
+    conversations,
+    groups,
+    isLoading,
+    hasKnownHistory,
+    load,
+    upsert,
+    updateMeta,
+    remove,
+    getTree
+  }
 }

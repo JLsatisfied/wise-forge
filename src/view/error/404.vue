@@ -4,6 +4,15 @@ import ThemeToggle from '@/components/ThemeToggle.vue'
 
 const router = useRouter()
 
+// 无历史记录时（例如直接打开 404 链接）回退到首页
+const goBack = () => {
+  if (window.history.length > 1) {
+    router.back()
+  } else {
+    router.push('/')
+  }
+}
+
 defineOptions({
   name: '404Page'
 })
@@ -208,9 +217,10 @@ defineOptions({
     <div class="error-content">
       <p class="error-code">404</p>
       <p class="error-text">抱歉，你访问的页面不存在</p>
-      <el-button type="primary" class="back" @click="router.push('/intelligence')"
-        >返回冒险页面</el-button
-      >
+      <div class="back-actions">
+        <el-button type="primary" class="back" @click="router.push('/')">返回首页</el-button>
+        <el-button class="back" @click="goBack">返回上一页</el-button>
+      </div>
     </div>
   </div>
 </template>
@@ -262,8 +272,15 @@ p {
     animation: text_right 0.5s var(--ease) 1;
   }
 
-  .back {
+  .back-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
     animation: text_right 0.5s var(--ease) 1;
+
+    .back {
+      margin: 0;
+    }
   }
 }
 

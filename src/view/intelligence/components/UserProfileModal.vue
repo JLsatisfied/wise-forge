@@ -27,7 +27,7 @@ const emit = defineEmits<{
         @click.stop
       >
         <div class="flex justify-between items-center mb-5">
-          <h3 class="profile-modal__title text-lg font-semibold">冒险者档案</h3>
+          <h3 class="profile-modal__title text-lg font-semibold">个人资料</h3>
           <button
             type="button"
             @click="emit('close')"
@@ -65,7 +65,7 @@ const emit = defineEmits<{
               />
             </div>
             <div>
-              <label class="block text-sm profile-modal__label mb-1.5">冒险者账号</label>
+              <label class="block text-sm profile-modal__label mb-1.5">账号</label>
               <div class="px-4 py-2.5 profile-modal__readonly text-sm">{{ nickAll.userNickname }}</div>
             </div>
           </div>

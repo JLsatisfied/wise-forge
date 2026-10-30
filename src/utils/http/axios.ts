@@ -69,6 +69,8 @@ class HttpRequest {
 export const httpDefault = new HttpRequest({
   baseURL: BASE_URL,
   timeout: TIMEOUT,
+  // 验证码依赖 session cookie，跨域（或代理）时需要显式携带
+  withCredentials: true,
   headers: {
     'Content-Type': ContentType.JSON
   }
@@ -77,6 +79,7 @@ export const httpDefault = new HttpRequest({
 export const httpFormData = new HttpRequest({
   baseURL: BASE_URL,
   timeout: TIMEOUT,
+  withCredentials: true,
   headers: {
     'Content-Type': ContentType.FORM_DATA
   }

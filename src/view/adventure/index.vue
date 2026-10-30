@@ -226,7 +226,7 @@ const onStop = () => {
   isStopText.value = false
 }
 
-// 离开冒险
+// 退出冒险
 const leaveAdventure = () => {
   if (ctrl.value) ctrl.value.abort()
   endGame()
@@ -293,7 +293,7 @@ onUnmounted(() => {
       <div class="adventure-topbar">
         <button class="topbar-btn" @click="leaveAdventure">
           <i class="fas fa-arrow-left"></i>
-          <span>离开冒险</span>
+          <span>退出冒险</span>
         </button>
         <div class="topbar-center" v-if="isPlaying">
           <div class="topbar-scene-icon">
@@ -313,7 +313,7 @@ onUnmounted(() => {
           <span class="topbar-scene-name">选择你的冒险</span>
         </div>
         <div class="topbar-right">
-          <span class="topbar-dm-badge" v-if="isPlaying">
+          <span class="topbar-dm-badge" v-if="isPlaying" title="DM：游戏主持人，负责推进剧情">
             <i class="fas fa-crown"></i> DM 命运织者
           </span>
           <ThemeToggle />
@@ -351,7 +351,7 @@ onUnmounted(() => {
               <span class="typing-dot"></span>
               <span class="typing-dot"></span>
             </div>
-            <button class="stop-btn" @click="onStop"><i class="fas fa-stop"></i> 中断</button>
+            <button class="stop-btn" @click="onStop"><i class="fas fa-stop"></i> 停止生成</button>
           </div>
 
           <!-- 空状态 -->

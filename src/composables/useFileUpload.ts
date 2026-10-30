@@ -9,12 +9,12 @@ export default function useFileUpload(el: Ref<HTMLInputElement | null>, refValue
         const input = e.target as HTMLInputElement;
         if (input.files && input.files.length > 0) {
             const file = input.files[0]
-            const maxSize = 100 * 1024
+            const maxSize = 2 * 1024 * 1024
             const imgType = ['image/png', 'image/jpeg', 'image/jpg']
             if (!imgType.includes(file.type)) {
             (el.value as HTMLInputElement).value = ''
             return ElMessage({
-                        message: '请上传jpg、jpeg或者png格式的图片',
+                        message: '仅支持 JPG / JPEG / PNG 格式的图片',
                         type: 'error',
                         offset: 200,
                         plain: true
@@ -24,7 +24,7 @@ export default function useFileUpload(el: Ref<HTMLInputElement | null>, refValue
             // 解决同一个文件上传浏览器默认没有改变触发change事件的问题
             (el.value as HTMLInputElement).value = ''
             return ElMessage({
-                        message: '请选择小于100KB的图片',
+                        message: '图片大小不能超过 2MB',
                         type: 'error',
                         offset: 200,
                         plain: true

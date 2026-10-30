@@ -36,6 +36,11 @@ export default defineConfig({
         target: 'https://spark-api-open.xf-yun.com',
         changeOrigin: true,
         rewrite: path => path.replace(/^\/api/, '')
+      },
+      // 开发环境走同源代理，验证码依赖的 session cookie 才能正常回传
+      '/aicg': {
+        target: 'http://127.0.0.1:5002',
+        changeOrigin: true
       }
     }
   },

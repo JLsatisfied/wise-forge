@@ -71,7 +71,7 @@ watch(() => props.filenameAll.isFileContent, (val) => {
     <div class="flex items-center gap-2 min-w-0" :class="filenameAll.isFileContent ? 'mt-3' : ''">
       <input type="file" ref="parseFile" @change="(e) => emit('parse-file-input', e as Event)" style="display: none;">
       <div class="input-tools">
-        <el-tooltip class="box-item" effect="dark" content="投递卷轴" placement="top">
+        <el-tooltip class="box-item" effect="dark" content="上传文件（PDF，≤1MB）" placement="top">
           <button type="button" class="p-2 pixel-tool-btn cursor-pointer" @click="openFile">
             <i class="fas fa-paperclip pixel-text-muted"></i>
           </button>
@@ -92,14 +92,14 @@ watch(() => props.filenameAll.isFileContent, (val) => {
             <i class="fas fa-globe" :class="webSearch ? '' : 'pixel-text-muted'"></i>
           </button>
         </el-tooltip>
-        <el-tooltip class="box-item" effect="dark" :content="isAnswering ? '回答中，无法导出' : '导出卷轴'" placement="top">
+        <el-tooltip class="box-item" effect="dark" :content="isAnswering ? '回答中，无法导出' : '导出对话为 HTML'" placement="top">
           <button type="button" class="p-2 pixel-tool-btn cursor-pointer" :disabled="isAnswering" :style="isAnswering ? { opacity: '0.4', cursor: 'not-allowed' } : {}" @click="emit('export-conversation')">
             <i class="fas fa-download pixel-text-muted"></i>
           </button>
         </el-tooltip>
-        <el-tooltip class="box-item" effect="dark" content="清除冒险日志" placement="top">
+        <el-tooltip class="box-item" effect="dark" content="清空当前对话" placement="top">
           <button type="button" class="p-2 pixel-tool-btn cursor-pointer" @click="emit('clear')">
-            <i class="fas fa-trash-alt pixel-text-muted" title="清除冒险日志"></i>
+            <i class="fas fa-trash-alt pixel-text-muted" title="清空当前对话"></i>
           </button>
         </el-tooltip>
       </div>
@@ -109,12 +109,12 @@ watch(() => props.filenameAll.isFileContent, (val) => {
         @keydown.enter.prevent="emit('keydown', $event)"
         rows="1"
         class="textarea-dialogue flex-1 min-w-0 resize-none px-4 py-2 text-sm pixel-textarea"
-        placeholder="向冒险者公会诉说你的疑问..."
+        placeholder="输入你的问题，或上传一份 PDF…"
         ref="textareaDialogue"
       ></textarea>
-      <button type="button" @click="emit('toggle-deep-thinking')" class="pixel-btn pixel-chip px-4 py-2 flex items-center gap-2 mr-2 cursor-pointer text-sm shrink-0" :class="{'pixel-chip--on': isDeepThinking}">
+      <button type="button" @click="emit('toggle-deep-thinking')" title="深度思考：先推理，再回答（仅 DeepSeek 模型）" class="pixel-btn pixel-chip px-4 py-2 flex items-center gap-2 mr-2 cursor-pointer shrink-0 text-sm" :class="{'pixel-chip--on': isDeepThinking}">
         <i class="fas fa-lightbulb text-sm"></i>
-        贤者沉思
+        深度思考
       </button>
       <button type="button" class="pixel-btn pixel-btn-primary px-4 py-2 cursor-pointer shrink-0" v-if="isStopText" @click="emit('stop-export')">
         <i class="fas fa-stop text-sm" title="停止生成"></i>

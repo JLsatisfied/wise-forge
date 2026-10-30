@@ -61,11 +61,11 @@ const showUserMenu = ref(false)
       </button>
       <div v-if="showUserMenu" class="pixel-dropdown pixel-user-menu absolute right-0 mt-2 w-48 py-2">
         <a href="#" class="block px-4 py-2 pixel-menu-link" @click.prevent="emit('open-user-profile'); showUserMenu = false">
-          <i class="fas fa-user mr-2 pixel-text-muted"></i>冒险者档案
+          <i class="fas fa-user mr-2 pixel-text-muted"></i>个人资料
         </a>
         <hr class="my-2 pixel-hr" />
         <a @click="emit('out-login')" class="block px-4 py-2 pixel-menu-link pixel-menu-danger cursor-pointer">
-          <i class="fas fa-sign-out-alt mr-2"></i>离开冒险
+          <i class="fas fa-sign-out-alt mr-2"></i>退出登录
         </a>
       </div>
       </div>

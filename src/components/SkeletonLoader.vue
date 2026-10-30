@@ -23,85 +23,53 @@ defineProps<{
 </template>
 
 <style lang="scss" scoped>
-@use '@/styles/pixel-theme' as *;
-
 .pixel-skeleton {
   position: relative;
   overflow: hidden;
-  background: rgba($neon-cyan, 0.06);
-  border: 1px solid rgba($neon-cyan, 0.12);
-  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  background: var(--skeleton-bg);
 
   &__shimmer {
     position: absolute;
     inset: 0;
     transform: translateX(-100%);
     background: linear-gradient(
-      105deg,
+      90deg,
       transparent 0%,
-      transparent 35%,
-      rgba($neon-cyan, 0.08) 40%,
-      rgba($neon-magenta, 0.06) 48%,
-      rgba($neon-cyan, 0.08) 56%,
-      transparent 60%,
+      transparent 30%,
+      var(--skeleton-shimmer) 50%,
+      transparent 70%,
       transparent 100%
     );
   }
 
   &--animate &__shimmer {
-    animation: shimmer-slide 2s ease-in-out infinite;
+    animation: shimmer-slide 1.6s var(--ease) infinite;
   }
 
-  // 变体样式
+  // 变体样式：圆角与页面列表/头像保持一致
   &--text {
     height: 1rem;
-    clip-path: polygon(
-      0 2px, 2px 2px, 2px 0,
-      calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px,
-      100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%,
-      2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px)
-    );
+    border-radius: 4px;
   }
 
   &--avatar {
-    border-radius: 0;
-    clip-path: polygon(
-      0 4px, 4px 4px, 4px 0,
-      calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px,
-      100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%,
-      4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px)
-    );
+    border-radius: 9px;
   }
 
   &--card {
     height: 120px;
-    clip-path: polygon(
-      0 6px, 6px 6px, 6px 0,
-      calc(100% - 6px) 0, calc(100% - 6px) 6px, 100% 6px,
-      100% calc(100% - 6px), calc(100% - 6px) calc(100% - 6px), calc(100% - 6px) 100%,
-      6px 100%, 6px calc(100% - 6px), 0 calc(100% - 6px)
-    );
+    border-radius: 12px;
   }
 
   &--bubble {
     height: 3.5rem;
-    border-radius: 0;
-    clip-path: polygon(
-      0 4px, 4px 4px, 4px 0,
-      calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px,
-      100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%,
-      4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px)
-    );
+    border-radius: 12px;
   }
 
   &--list-item {
     height: 56px;
-    clip-path: polygon(
-      0 4px, 4px 4px, 4px 0,
-      calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px,
-      100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%,
-      4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px)
-    );
+    border-radius: 10px;
   }
 }
 

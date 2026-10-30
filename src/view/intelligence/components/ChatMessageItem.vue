@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { EditPen, CopyDocument } from '@element-plus/icons-vue'
 import { allInstall, searchResultObject } from '@/utils/types/ai'
 import type { BranchVersion } from '../useConversationBranches'
+import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
 
 defineOptions({ name: 'ChatMessageItem' })
 
@@ -113,6 +114,34 @@ const answerHtml = computed(() => {
     })
     .join('')
 })
+
+// ===== HTML 代码块预览 =====
+const htmlPreviewVisible = ref(false)
+const htmlPreviewCode = ref('')
+
+const openHtmlPreview = (button: Element) => {
+  const code = button.closest('.pre-code-box')?.querySelector('code')?.textContent || ''
+  if (!code.trim()) {
+    ElMessage.warning('代码还没有生成完，请稍后再试')
+    return
+  }
+  htmlPreviewCode.value = code
+  htmlPreviewVisible.value = true
+}
+
+// 回答内容里的交互：HTML 预览按钮优先，其次是联网引用标签
+const onContentClick = (event: MouseEvent) => {
+  const target = event.target
+  if (!(target instanceof Element)) return
+
+  const previewButton = target.closest('.code-block-header__preview')
+  if (previewButton) {
+    openHtmlPreview(previewButton)
+    return
+  }
+
+  onCitationClick(event)
+}
 
 // 点击引用标签或悬浮资料卡：直接在新页面打开对应资料
 const onCitationClick = (event: MouseEvent) => {
@@ -255,7 +284,7 @@ const onCitationIconError = (event: Event) => {
             v-else
             class="text-sm leading-7 ai-txt"
             v-html="answerHtml"
-            @click="onCitationClick"
+            @click="onContentClick"
             @error.capture="onCitationIconError"
           ></div>
           <div
@@ -322,6 +351,8 @@ const onCitationIconError = (event: Event) => {
       </div>
     </div>
   </div>
+
+  <HtmlPreviewDialog v-model="htmlPreviewVisible" :code="htmlPreviewCode" />
 </template>
 
 <style lang="scss" scoped>
@@ -806,74 +837,101 @@ const onCitationIconError = (event: Event) => {
 /* 代码块 */
 :deep(.pre-code-box) {
   margin: 12px 0;
-  border: 1px solid #30333c;
-  border-radius: 10px;
+  border: 1px solid var(--code-border);
+  border-radius: 12px;
   overflow: hidden;
-  background: #1b1d23;
+  background: var(--code-bg);
+  box-shadow: var(--shadow-xs);
 }
 
 :deep(.pre-code-header) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 38px;
-  padding: 0 14px;
-  background: #23252c;
-  color: #a9adb7;
+  gap: 12px;
+  height: 36px;
+  padding: 0 10px 0 14px;
+  border-bottom: 1px solid var(--code-border);
+  background: var(--code-header-bg);
+  color: var(--code-muted);
   font-size: 12px;
-  line-height: 38px;
+  line-height: 36px;
 }
 
 :deep(.code-block-header__lang) {
-  color: #c7cad2;
-  font-size: 12px;
-  font-weight: 500;
+  overflow: hidden;
+  color: var(--code-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 :deep(.code-block-header__actions) {
   display: flex;
-  gap: 10px;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2px;
 }
 
 :deep(.code-block-header__copy),
-:deep(.code-block-header__download) {
+:deep(.code-block-header__download),
+:deep(.code-block-header__preview) {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: 6px;
-  color: #a9adb7;
+  gap: 5px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: var(--radius-xs);
+  color: var(--code-muted);
   font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
+  user-select: none;
   transition:
     background-color 0.15s var(--ease),
     color 0.15s var(--ease);
 
+  i {
+    width: 12px;
+    font-size: 11px;
+    line-height: 1;
+    text-align: center;
+  }
+
   &:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: #fff;
+    background: var(--code-hover);
+    color: var(--code-text);
   }
 }
 
-:deep(.code-block-header__copy::before) {
-  content: '📋';
-  font-size: 12px;
+:deep(.code-block-header__preview) {
+  color: var(--accent);
+  font-weight: 500;
+
+  &:hover {
+    background: var(--accent-soft);
+    color: var(--accent-hover);
+  }
 }
 
-:deep(.code-block-header__download::before) {
-  content: '⬇️';
-  font-size: 12px;
+:deep(.pre-code) {
+  overflow-x: auto;
 }
 
 :deep(.pre-code code.hljs) {
   display: block;
   padding: 14px 16px;
   border: none;
-  background: #1b1d23;
-  color: #e6e8ee;
+  background: var(--code-bg);
+  color: var(--code-text);
   font-family: var(--font-mono);
   font-size: 13px;
-  line-height: 1.65;
+  line-height: 1.7;
   white-space: pre-wrap;
   overflow-wrap: break-word;
   overflow-x: auto;

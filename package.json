@@ -1,7 +1,8 @@
 {
-  "name": "vue3-basic",
+  "name": "wise-forge",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "未来智匠 Wise Forge：多模型 AI 对话与创作平台，支持深度思考、联网搜索、PDF 解析、对话版本回溯与可嵌入的智能客服。",
   "type": "module",
   "scripts": {
     "dev": "vite",

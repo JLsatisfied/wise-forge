@@ -6,7 +6,6 @@ import { computed, reactive, ref, onMounted, watch, nextTick, onUnmounted } from
 // import vue from 'highlight.js/lib/languages/xml';
 // import react from 'highlight.js/lib/languages/xml';
 // import xml from 'highlight.js/lib/languages/xml';
-import 'highlight.js/styles/a11y-dark.css'
 import { fetchEventSource } from '@microsoft/fetch-event-source'
 import Clipboard from 'clipboard'
 import { aicgApi } from '@/api/aicg.ts'
@@ -24,7 +23,7 @@ import {
 } from './useConversationBranches'
 import {
   useDeepseekHistory,
-  clipTitle,
+  normalizeTitle,
   createDeepseekId,
   type DeepseekConversation,
   type DeepseekConversationMeta
@@ -81,30 +80,30 @@ const CONSTATNS = {
   MODELS: {
     DEEPSEEK_V4: 'deepseek-v4-flash',
     SPARK_ULTRA: 'spark-pro',
-    DEFAULT_MODULE: 'deepseek-flash', // DeepSeek V4 快速模式
-    REASONER_MODULE: 'deepseek-reasoner' // deepseek思考模式
+    // 对话统一使用 deepseek-flash，思考与否由请求里的 thinking 参数控制
+    DEFAULT_MODULE: 'deepseek-flash'
   },
   // 消息提示
   MESSAGES: {
-    COPY_SUCCESS: '铭文已复制',
-    COPY_FAILED: '铭文复制失败',
-    INPUT_REQUIRED: '冒险者，请输入你的疑问',
-    ANSWERING: '回答中，请稍后再试',
-    CLEAR_DISABLED: '回答中，无法清除冒险日志，请先停止输出',
-    NO_MESSAGES: '没有冒险日志可以清除',
-    SERVER_ERROR: '魔法塔繁忙，请稍后再试',
-    REASONER_ONLY: '只允许 DeepSeek 模型使用贤者沉思模式',
-    MODEL_SWITCH_DISABLED: '此次冒险只能使用 Spark Pro 大模型',
-    REASONER_NOT_SUPPORTED: 'Spark Pro 模型不支持贤者沉思',
-    DOWNLOAD_SUCCESS: '卷轴导出成功',
-    DOWNLOAD_FAILED: '卷轴导出失败，请重试',
-    DELETE_SUCCESS: '冒险日志已删除'
+    COPY_SUCCESS: '已复制',
+    COPY_FAILED: '复制失败，请重试',
+    INPUT_REQUIRED: '请输入问题后再发送',
+    ANSWERING: '正在回答中，请稍后再试',
+    CLEAR_DISABLED: '回答中无法清空对话，请先停止输出',
+    NO_MESSAGES: '当前没有可清空的对话',
+    SERVER_ERROR: 'AI 服务暂时不可用，请稍后重试',
+    REASONER_ONLY: '深度思考仅支持 DeepSeek 模型',
+    MODEL_SWITCH_DISABLED: '当前角色仅支持 Spark Pro 模型',
+    REASONER_NOT_SUPPORTED: 'Spark Pro 模型不支持深度思考',
+    DOWNLOAD_SUCCESS: '对话已导出',
+    DOWNLOAD_FAILED: '导出失败，请重试',
+    DELETE_SUCCESS: '对话已删除'
   },
   // 默认配置
   DEFAULT: {
     AI_AVATAR: 'https://ai-public.mastergo.com/ai/img_res/62f8190121cf7f46c510bfc3910b9518.jpg',
     USER_AVATAR: 'https://ai-public.mastergo.com/ai/img_res/838a4ab73af1c2e4de9e11a5ce843075.jpg',
-    AI_NAME: '冒险AI助手',
+    AI_NAME: '未来智匠 AI',
     PAGE_SIZE: 3,
     PROMPT_VALUE: 200
   }
@@ -122,6 +121,14 @@ const nickAll = reactive({
 let showUserProfile = ref(false) //是否显示个人信息
 
 const contentText = ref('') // 文字输入
+
+// 空对话时的示例问题，点击即可直接发送
+const examplePrompts = [
+  '用三句话解释 JavaScript 事件循环',
+  '帮我把这段需求拆成技术方案：…',
+  '对比 v-if 和 v-show 的使用场景',
+  '上传一份 PDF，帮我总结要点'
+]
 let allText: allInstall[] = reactive([]) // 对话内容
 
 let isGenerate = ref(false)
@@ -190,7 +197,6 @@ let searchDrawerResults = ref<searchResultObject[]>([])
 // 从回答里的引用标签进入时，定位并高亮对应资料
 let searchDrawerFocus = ref(-1)
 let isLoadingCategories = ref(true)
-let apiModuleId = ref(CONSTATNS.MODELS.DEFAULT_MODULE)
 let responce = ''
 
 // ===== 对话分支（仅用于版本切换） =====
@@ -215,6 +221,8 @@ const {
 const {
   conversations: deepseekConversations,
   groups: deepseekGroups,
+  isLoading: isLoadingDeepseek,
+  hasKnownHistory: deepseekHasHistory,
   load: loadDeepseekHistory,
   upsert: upsertDeepseekHistory,
   updateMeta: updateDeepseekMeta,
@@ -478,7 +486,7 @@ const switchModel = (id: string) => {
     showMessage(CONSTATNS.MESSAGES.MODEL_SWITCH_DISABLED, 'warning')
     return
   }
-  if (currentModel.value !== id && apiModuleId.value == 'deepseek-reasoner') {
+  if (currentModel.value !== id && isDeepThinking.value) {
     showMessage(CONSTATNS.MESSAGES.REASONER_NOT_SUPPORTED, 'warning')
     return
   }
@@ -524,7 +532,7 @@ const saveDeepseekSnapshot = (tree: BranchSnapshot, boundId: string, firstUserTe
   }
   const entry: DeepseekConversation = {
     id: createDeepseekId(),
-    title: clipTitle(firstUserText),
+    title: normalizeTitle(firstUserText),
     createdAt: now,
     updatedAt: now,
     tree
@@ -686,6 +694,76 @@ const renderInWorker = (content: string): Promise<string> => {
   })
 }
 
+interface StreamRenderer {
+  schedule: () => void
+  dispose: () => void
+}
+
+// 流式渲染合并：每个分片都全量重排 markdown 会让长回答越来越卡，
+// 这里保证同一时刻只渲染最新一份内容，并按回答长度放宽刷新间隔
+const createStreamRenderer = (
+  read: () => string,
+  write: (html: string) => void
+): StreamRenderer => {
+  let timer: number | null = null
+  let rendering = false
+  let dirty = false
+  let disposed = false
+
+  const interval = (length: number) => {
+    if (length > 40000) return 400
+    if (length > 15000) return 250
+    if (length > 5000) return 150
+    return 80
+  }
+
+  const run = () => {
+    timer = null
+    if (disposed) return
+    const content = read()
+    if (!content) return
+    dirty = false
+    rendering = true
+    renderInWorker(content)
+      .then(html => {
+        // 停止 / 切换会话后到达的结果直接丢弃，避免回写旧内容
+        if (!disposed) write(html)
+      })
+      .catch(() => {})
+      .finally(() => {
+        rendering = false
+        if (dirty && !disposed) schedule()
+      })
+  }
+
+  const schedule = () => {
+    if (disposed) return
+    dirty = true
+    if (timer !== null || rendering) return
+    timer = window.setTimeout(run, interval(read().length))
+  }
+
+  const dispose = () => {
+    disposed = true
+    if (timer !== null) {
+      window.clearTimeout(timer)
+      timer = null
+    }
+  }
+
+  return { schedule, dispose }
+}
+
+let answerRenderer: StreamRenderer | null = null
+let thinkRenderer: StreamRenderer | null = null
+
+const releaseStreamRenderers = () => {
+  answerRenderer?.dispose()
+  thinkRenderer?.dispose()
+  answerRenderer = null
+  thinkRenderer = null
+}
+
 // DeepSeek 上下文：沿当前分支回溯到目标用户消息
 const buildDeepSeekContext = (userNodeId: string): requestObject[] => {
   return pathTo(userNodeId)
@@ -701,6 +779,8 @@ const finishStream = (status: 'done' | 'error' | 'stopped', persist = status !==
   if (!streamingNodeId.value) return
   const node = getNode(streamingNodeId.value)
   const rawAnswer = responce
+  // 停止后不再调度新的渲染，仍在队列里的结果也会被丢弃
+  releaseStreamRenderers()
   if (node) {
     node.status = status
     node.raw = responce
@@ -723,6 +803,14 @@ const finishStream = (status: 'done' | 'error' | 'stopped', persist = status !==
   if (persist) {
     if (currentModel.value === CONSTATNS.MODELS.DEEPSEEK_V4 && currentIndex.value == 0) {
       finalizeDeepseekTurn(node, rawAnswer)
+    } else if (node?.adminContent && rawAnswer) {
+      // 其他模型没有异步补渲染流程：先把最终全文渲染完再落盘，避免尾部丢失
+      renderInWorker(rawAnswer)
+        .then(html => {
+          if (node.raw === rawAnswer && node.adminContent) node.adminContent.adminText = html
+        })
+        .catch(() => {})
+        .then(() => saveMessage())
     } else {
       saveMessage()
     }
@@ -804,10 +892,26 @@ const startRequest = (
   markdownContent.value = ''
   serviceThinkContent.value = ''
   responce = ''
-  isStopText.value = false
+  // 请求一开始就允许停止，不必等第一个分片到达
+  isStopText.value = true
   isTyping.value = false
   closeScroll.value = false
   ctrl.value = new AbortController()
+
+  // 上一轮如果没走完收尾，先释放它的渲染调度，避免结果回写到新的一轮
+  releaseStreamRenderers()
+  const writeAnswer = (html: string) => {
+    const node = getNode(assistantNode.id)
+    if (!node?.adminContent) return
+    node.adminContent.isShow = false
+    node.adminContent.adminText = html
+  }
+  const writeThink = (html: string) => {
+    const node = getNode(assistantNode.id)
+    if (node?.thinkContent) node.thinkContent.thinkText = html
+  }
+  answerRenderer = createStreamRenderer(() => markdownContent.value, writeAnswer)
+  thinkRenderer = createStreamRenderer(() => serviceThinkContent.value, writeThink)
 
   if (currentModel.value == CONSTATNS.MODELS.DEEPSEEK_V4) {
     const context = buildDeepSeekContext(userNode.id)
@@ -816,7 +920,10 @@ const startRequest = (
       text: searchResults.length
         ? [{ role: 'system', content: buildSearchContext(searchResults) }, ...context]
         : context,
-      moduleId: apiModuleId.value
+      moduleId: CONSTATNS.MODELS.DEFAULT_MODULE,
+      // 「深度思考」开关：开启时后端让模型输出推理过程，
+      // 关闭时显式禁用思考，避免普通模式先隐藏思考很久才出正文
+      thinking: isDeepThinking.value
     }
     fetchEventSource(CONSTATNS.API.BASE_URL + CONSTATNS.API.DEEPSEEK_MODULE, {
       method: 'POST',
@@ -835,21 +942,15 @@ const startRequest = (
         } catch {
           return
         }
-        // 捕获当前 timeCount 快照，防止 renderInWorker 异步回写时下标漂移
-        const snapshotIndex = timeCount.value
-        const msg = allText[snapshotIndex]
+        // 当前轮次的消息对象；渲染结果通过节点 id 回写，不再依赖下标
+        const msg = allText[timeCount.value]
         if (!msg) return
 
-        if (
-          res.choices?.[0]?.delta?.reasoning_content &&
-          apiModuleId.value == CONSTATNS.MODELS.REASONER_MODULE
-        ) {
+        // 只有开启「深度思考」发出的这一轮才创建了 thinkContent，
+        // 普通模式的 thinking 已由后端关闭，这里再做一层兜底
+        if (res.choices?.[0]?.delta?.reasoning_content && msg.thinkContent) {
           serviceThinkContent.value += res.choices[0].delta.reasoning_content
-          renderInWorker(serviceThinkContent.value).then(thinkText => {
-            if (allText[snapshotIndex]?.thinkContent) {
-              allText[snapshotIndex].thinkContent!.thinkText = thinkText
-            }
-          })
+          thinkRenderer?.schedule()
           if (msg.thinkContent) {
             msg.thinkContent.status = '1'
             msg.thinkContent.isOpen = true
@@ -864,11 +965,7 @@ const startRequest = (
           markdownContent.value += res.choices[0].delta.content
           responce += res.choices[0].delta.content
           msg.adminContent.isShow = false
-          renderInWorker(markdownContent.value).then(adminText => {
-            if (allText[snapshotIndex]) {
-              allText[snapshotIndex].adminContent.adminText = adminText
-            }
-          })
+          answerRenderer?.schedule()
           isStopText.value = true
         }
         // 仅在没有正常 choices 时才把 message 当作错误信息
@@ -937,8 +1034,7 @@ const startRequest = (
         } catch {
           return
         }
-        const snapshotIndex = timeCount.value
-        const msg = allText[snapshotIndex]
+        const msg = allText[timeCount.value]
         if (!msg) return
         // 讯飞星火每个成功分片都会带 message: "Success"，不能当作回答内容
         if (typeof res.code === 'number' && res.code !== 0) {
@@ -952,11 +1048,7 @@ const startRequest = (
         markdownContent.value += delta
         responce += delta
         msg.adminContent.isShow = false
-        renderInWorker(markdownContent.value).then(xfText => {
-          if (allText[snapshotIndex]) {
-            allText[snapshotIndex].adminContent.adminText = xfText
-          }
-        })
+        answerRenderer?.schedule()
         isStopText.value = true
       },
       onclose() {
@@ -1018,10 +1110,10 @@ const sendTxt = <T extends string>(value: T) => {
     return
   }
   if (filenameAll.value.isFileContent && filenameAll.value.status == '1') {
-    showMessage('卷轴正在投递中，请稍后再试', 'warning')
+    showMessage('文件正在上传中，请稍后再试', 'warning')
     return
   } else if (filenameAll.value.isFileContent && filenameAll.value.status == '3') {
-    showMessage('卷轴投递失败，请重新投递', 'warning')
+    showMessage('文件上传失败，请重新上传', 'warning')
     return
   }
   contentText.value = ''
@@ -1052,7 +1144,7 @@ const sendTxt = <T extends string>(value: T) => {
     role: 'assistant',
     adminContent: { adminText: '', isShow: true },
     thinkContent:
-      isDeepSeek && apiModuleId.value == CONSTATNS.MODELS.REASONER_MODULE
+      isDeepSeek && isDeepThinking.value
         ? { thinkText: '', status: '1', isShow: true, isOpen: false }
         : null,
     status: 'streaming'
@@ -1100,7 +1192,6 @@ const selectMessage = <T extends categories>(item: T) => {
   isWebSearch.value = false
   if (currentModel.value == CONSTATNS.MODELS.SPARK_ULTRA) {
     isDeepThinking.value = false
-    apiModuleId.value = CONSTATNS.MODELS.DEFAULT_MODULE
   }
   isGenerate.value = false
   imgCurrent.value = ''
@@ -1320,12 +1411,12 @@ const clear = () => {
 // 导出对话
 const exportConversation = () => {
   if (!allText.length) {
-    showMessage('没有冒险日志可以导出', 'warning')
+    showMessage('当前没有可导出的对话', 'warning')
     return
   }
   const title = revealAlways.value.revealName || 'AI对话'
   const date = new Date().toLocaleString('zh-CN')
-  // 跟随当前页面主题，深色页面导出深色卷轴
+  // 跟随当前页面主题，深色模式导出深色样式
   const isDark = document.documentElement.classList.contains('dark')
   // 取值与 src/styles/theme.scss 保持一致
   const palette = isDark
@@ -1391,7 +1482,7 @@ const exportConversation = () => {
       )
       // 思考内容 + AI 回复
       const think = item.thinkContent?.thinkText
-        ? `<div class="think"><div class="think-label">贤者沉思</div><div class="md">${item.thinkContent.thinkText}</div></div>`
+        ? `<div class="think"><div class="think-label">深度思考</div><div class="md">${item.thinkContent.thinkText}</div></div>`
         : ''
       const answer = item.adminContent.adminText
         ? `<div class="md">${item.adminContent.adminText}</div>`
@@ -1593,7 +1684,7 @@ const exportConversation = () => {
   <main class="turns">
     ${messages}
   </main>
-  <footer class="page-footer">由冒险者公会 · 未来智匠导出</footer>
+  <footer class="page-footer">由未来智匠 Wise Forge 导出</footer>
 </div>
 </body>
 </html>`
@@ -1607,7 +1698,7 @@ const exportConversation = () => {
   a.click()
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
-  showMessage('冒险日志已导出', 'success')
+  showMessage('对话已导出为 HTML 文件', 'success')
 }
 
 const escapeHtml = (str: string) => {
@@ -1788,7 +1879,7 @@ const regenerate = (turnIndex: number) => {
     role: 'assistant',
     adminContent: { adminText: '', isShow: true },
     thinkContent:
-      isDeepSeek && apiModuleId.value == CONSTATNS.MODELS.REASONER_MODULE
+      isDeepSeek && isDeepThinking.value
         ? { thinkText: '', status: '1', isShow: true, isOpen: false }
         : null,
     status: 'streaming'
@@ -1867,7 +1958,7 @@ const editSubmit = () => {
     role: 'assistant',
     adminContent: { adminText: '', isShow: true },
     thinkContent:
-      isDeepSeek && apiModuleId.value == CONSTATNS.MODELS.REASONER_MODULE
+      isDeepSeek && isDeepThinking.value
         ? { thinkText: '', status: '1', isShow: true, isOpen: false }
         : null,
     status: 'streaming'
@@ -1926,9 +2017,6 @@ const copyAnswer = (index: number) => {
 const toggleDeepThinking = () => {
   if (currentModel.value == CONSTATNS.MODELS.DEEPSEEK_V4) {
     isDeepThinking.value = !isDeepThinking.value
-    apiModuleId.value = isDeepThinking.value
-      ? CONSTATNS.MODELS.REASONER_MODULE
-      : CONSTATNS.MODELS.DEFAULT_MODULE
     return
   }
   showMessage(CONSTATNS.MESSAGES.REASONER_ONLY, 'warning')
@@ -1951,7 +2039,7 @@ const saveUserProfile = () => {
     })
     .then(res => {
       if (res.data.code == 0) {
-        showMessage('冒险者档案已更新', 'success')
+        showMessage('个人信息已更新', 'success')
         showUserProfile.value = false
         getUser(false)
       } else {
@@ -2041,6 +2129,8 @@ const openUserProfile = () => {
       :category-data="categoryData"
       :current-index="currentIndex"
       :deepseek-groups="deepseekGroups"
+      :is-loading-deepseek="isLoadingDeepseek"
+      :deepseek-has-history="deepseekHasHistory"
       :active-deepseek-id="activeDeepseekId"
       @add-classify="addClassify"
       @select-message="selectMessage"
@@ -2077,14 +2167,25 @@ const openUserProfile = () => {
       <!-- 聊天区域 -->
       <div class="pixel-chat-wrap">
         <div
-          class="flex-1 overflow-y-auto overflow-x-hidden pr-4 pb-4 chat-wrapper min-w-0"
+          class="flex-1 overflow-y-auto pr-4 pb-4 chat-wrapper min-w-0"
           ref="chatContainer"
           :class="isStopText ? 'wrapper' : ''"
         >
           <div v-if="!allText.length" class="chat-empty">
             <div class="chat-empty-icon"><i class="fas fa-comments"></i></div>
-            <p class="chat-empty-title">开始一段新的冒险</p>
+            <p class="chat-empty-title">开始对话</p>
             <p class="chat-empty-desc">发送你的第一个问题，或从左侧选择已有角色继续对话</p>
+            <div class="chat-empty-prompts">
+              <button
+                v-for="prompt in examplePrompts"
+                :key="prompt"
+                type="button"
+                class="chat-empty-prompt"
+                @click="sendTxt(prompt)"
+              >
+                {{ prompt }}
+              </button>
+            </div>
           </div>
           <div
             v-for="(item, index) in allText"
@@ -2354,6 +2455,43 @@ const openUserProfile = () => {
   margin: 0;
   color: var(--text-3);
   font-size: 13px;
+}
+
+.chat-empty-prompts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+  max-width: 460px;
+  margin-top: 16px;
+}
+
+.chat-empty-prompt {
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 12.5px;
+  line-height: 1.5;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.18s var(--ease),
+    color 0.18s var(--ease),
+    background-color 0.18s var(--ease);
+
+  &:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+}
+
+@media (width <= 760px) {
+  .chat-empty-prompts {
+    grid-template-columns: 1fr;
+  }
 }
 
 .chat-turn {

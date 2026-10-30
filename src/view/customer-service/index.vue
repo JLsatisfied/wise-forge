@@ -14,21 +14,21 @@ defineOptions({
 const router = useRouter()
 
 const chatConfig = reactive({
-  welcomeText: '勇敢的冒险者，欢迎来到冒险者公会！我是你的向导，有什么可以帮你的？',
-  signature: '冒险者公会 · 向导',
-  title: '冒险者公会',
+  welcomeText: '你好，我是这里的智能客服，有什么可以帮你的？',
+  signature: '未来智匠 · 智能客服',
+  title: '在线客服',
   techBrand: '未来智匠',
   themeColor: '#2563eb',
   apiKey: '' // 存储 DeepSeek API Key
 })
 
 const colorPresets = [
-  { name: '苍蓝', value: '#2563eb' },
-  { name: '翠绿', value: '#16a34a' },
-  { name: '紫晶', value: '#9333ea' },
-  { name: '赤焰', value: '#dc2626' },
-  { name: '暗影', value: '#374151' },
-  { name: '辉金', value: '#eab308' }
+  { name: '蓝色', value: '#2563eb' },
+  { name: '绿色', value: '#16a34a' },
+  { name: '紫色', value: '#9333ea' },
+  { name: '红色', value: '#dc2626' },
+  { name: '深灰', value: '#374151' },
+  { name: '金色', value: '#eab308' }
 ]
 
 const newMessage = ref('')
@@ -223,12 +223,12 @@ const callDeepSeekAPI = async (prompt: string) => {
 // 模拟API响应（当API Key未提供时使用）
 const simulateAPIResponse = async () => {
   const responses = [
-    '冒险者，让我为你翻阅古老的智慧之书...',
-    '嗯，这是个值得探索的问题，听我道来。',
-    '根据冒险者公会的情报，答案是这样的...',
-    '交给我吧！首先我们需要点燃魔法火炬...',
-    '这片大陆上许多冒险者都问过类似的问题。',
-    '冒险者公会为你提供最专业的魔法支援。'
+    '这是模拟回复。在「API 配置」中填入 DeepSeek API Key 后，就能接入真实模型。',
+    '你可以在左侧修改欢迎语、署名和主题色，右侧会实时预览效果。',
+    '点击「获取嵌入代码」，把代码粘贴到你的网页，客服就能上线。',
+    '这段文字用于演示流式输出，实际回答由模型生成。',
+    '如果访客常问同一个问题，可以把标准答案写进欢迎语。',
+    '配置保存后，刷新页面会保留你的客服设置。'
   ]
 
   // 创建消息对象
@@ -330,13 +330,13 @@ const startTestConversation = () => {
   setTimeout(() => {
     messages.value.push({
       type: 'user',
-      content: '你好，冒险者公会都有什么功能？'
+      content: '你好，这个客服都有什么功能？'
     })
     scrollToBottom()
 
     // 模拟AI回复
     isTyping.value = true
-    callDeepSeekAPI('你好，冒险者公会都有什么功能？').then(() => {
+    callDeepSeekAPI('你好，这个客服都有什么功能？').then(() => {
       isTyping.value = false
     })
   }, 500)
@@ -359,7 +359,7 @@ const saveApiConfig = () => {
 
   // 提示保存成功
   ElMessage({
-    message: '法术配置已铭刻',
+    message: 'API 配置已保存',
     type: 'success'
   })
 }
@@ -378,7 +378,7 @@ const saveConfig = () => {
   aicgApi.addCustomerService(config).then(res => {
     if (res.data.code == 0) {
       ElMessage({
-        message: '铭刻成功！配置已保存。',
+        message: '客服配置已保存',
         type: 'success'
       })
     } else {
@@ -431,13 +431,13 @@ window.BotConfig = {
       .writeText(text)
       .then(() => {
         ElMessage({
-          message: '符石已复制！',
+          message: '嵌入代码已复制',
           type: 'success'
         })
       })
       .catch(() => {
         ElMessage({
-          message: '符石复制失败',
+          message: '复制失败，请手动选中代码复制',
           type: 'error'
         })
       })
@@ -455,12 +455,12 @@ window.BotConfig = {
     try {
       document.execCommand('copy')
       ElMessage({
-        message: '符石已复制！',
+        message: '嵌入代码已复制',
         type: 'success'
       })
     } catch {
       ElMessage({
-        message: '符石复制失败',
+        message: '复制失败，请手动选中代码复制',
         type: 'error'
       })
     } finally {
@@ -544,8 +544,8 @@ onUnmounted(() => {
         <div class="cs-brand">
           <span class="cs-brand-mark"><i class="fas fa-headset"></i></span>
           <div class="cs-brand-copy">
-            <h1>冒险者公会</h1>
-            <p>配置并预览你的智能客服</p>
+            <h1>智能客服</h1>
+            <p>配置并预览你的客服组件</p>
           </div>
         </div>
         <div class="cs-head-actions">
@@ -559,10 +559,10 @@ onUnmounted(() => {
       <div class="cs-scroll">
         <!-- 基础配置区 -->
         <section class="cs-section">
-          <h2 class="cs-section-title">文字铭刻</h2>
+          <h2 class="cs-section-title">品牌文案</h2>
 
           <label class="cs-field">
-            <span>欢迎寄语</span>
+            <span>欢迎语</span>
             <input v-model="chatConfig.welcomeText" type="text" placeholder="输入欢迎语" />
           </label>
 
@@ -572,19 +572,19 @@ onUnmounted(() => {
           </label>
 
           <label class="cs-field">
-            <span>称号</span>
-            <input v-model="chatConfig.title" type="text" placeholder="输入客服称号" />
+            <span>客服名称</span>
+            <input v-model="chatConfig.title" type="text" placeholder="显示在聊天窗口顶部" />
           </label>
 
           <label class="cs-field">
-            <span>工坊印记</span>
-            <input v-model="chatConfig.techBrand" type="text" placeholder="输入品牌名称" />
+            <span>品牌名称</span>
+            <input v-model="chatConfig.techBrand" type="text" placeholder="显示在输入框下方" />
           </label>
         </section>
 
         <!-- 颜色配置区 -->
         <section class="cs-section">
-          <h2 class="cs-section-title">元素配色</h2>
+          <h2 class="cs-section-title">主题配色</h2>
           <div class="cs-swatches">
             <button
               v-for="color in colorPresets"
@@ -603,15 +603,15 @@ onUnmounted(() => {
 
         <!-- 测试功能区 -->
         <section class="cs-section">
-          <h2 class="cs-section-title">试炼功能</h2>
+          <h2 class="cs-section-title">调试工具</h2>
           <div class="cs-tools">
             <button class="btn btn-secondary" @click="startTestConversation">
               <i class="fas fa-flask"></i>
-              试炼对话
+              模拟对话
             </button>
             <button class="btn btn-secondary" @click="showApiConfig">
               <i class="fas fa-key"></i>
-              法术配置
+              API 配置
             </button>
           </div>
         </section>
@@ -620,11 +620,11 @@ onUnmounted(() => {
       <div class="cs-sidebar-footer">
         <button class="btn btn-primary btn-block" @click="saveConfig">
           <i class="fas fa-check"></i>
-          铭刻配置
+          保存配置
         </button>
         <button class="btn btn-secondary btn-block" @click="publishDialogVisible = true">
           <i class="fas fa-code"></i>
-          召唤符石
+          获取嵌入代码
         </button>
       </div>
     </aside>
@@ -633,17 +633,17 @@ onUnmounted(() => {
     <main class="cs-preview">
       <div class="cs-preview-head">
         <div>
-          <h2>预览视界</h2>
-          <p>调整左侧配置，客服效果会实时更新</p>
+          <h2>效果预览</h2>
+          <p>调整左侧配置，右侧会实时更新</p>
         </div>
         <div class="cs-preview-actions">
           <button class="btn btn-secondary" @click="resetConversation">
             <i class="fas fa-rotate-left"></i>
-            重置冒险
+            重置对话
           </button>
           <button class="btn btn-primary" @click="exportConfig">
             <i class="fas fa-download"></i>
-            导出铭文
+            导出配置
           </button>
         </div>
       </div>
@@ -717,7 +717,7 @@ onUnmounted(() => {
               <textarea
                 v-model="newMessage"
                 @keydown="handleKeydown"
-                placeholder="向冒险者公会提问..."
+                placeholder="向智能客服提问..."
                 class="chat-textarea"
                 rows="1"
                 @input="adjustTextareaHeight"
@@ -752,13 +752,13 @@ onUnmounted(() => {
   <!-- 发布弹窗 -->
   <el-dialog
     v-model="publishDialogVisible"
-    title="召唤符石"
+    title="获取嵌入代码"
     width="560px"
     class="app-dialog cs-dialog"
   >
     <div class="cs-dialog-block">
-      <h3>第一章：获取符石</h3>
-      <p class="cs-dialog-text">此符石适用于 PC 端页面，请将符石铭刻到需要使用对话的每个网页中。</p>
+      <h3>第一步：复制代码</h3>
+      <p class="cs-dialog-text">适用于 PC 端页面。把下面的代码放进每一个需要客服的网页中。</p>
       <div class="cs-code" v-html="rawHtml"></div>
       <button class="btn btn-primary cs-copy-btn" @click="copyCode">
         <i class="fas fa-copy"></i>
@@ -766,10 +766,10 @@ onUnmounted(() => {
       </button>
     </div>
     <div class="cs-dialog-block">
-      <h3>第二章：符石镶嵌</h3>
+      <h3>第二步：嵌入网页</h3>
       <ol class="cs-steps">
-        <li>请将符石添加到网页的 <code>&lt;head&gt;</code> 标签内</li>
-        <li>切记勿自行修改符石铭文</li>
+        <li>将代码添加到网页的 <code>&lt;head&gt;</code> 标签内</li>
+        <li>不要修改代码中的 <code>appId</code>，否则无法加载客服</li>
       </ol>
     </div>
   </el-dialog>
@@ -777,31 +777,33 @@ onUnmounted(() => {
   <!-- API配置弹窗 -->
   <el-dialog
     v-model="apiDialogVisible"
-    title="DeepSeek 法术配置"
-    width="520px"
+    title="DeepSeek API 配置"
+    width="560px"
     destroy-on-close
     class="app-dialog cs-dialog"
   >
-    <el-form label-width="110px" label-position="left">
-      <el-form-item label="法术密钥">
-        <el-input v-model="apiConfig.apiKey" placeholder="请输入 DeepSeek 法术密钥" show-password />
-        <div class="cs-hint">可在 DeepSeek 魔法塔获取法术密钥</div>
+    <el-form label-width="150px" label-position="left">
+      <el-form-item label="API Key">
+        <el-input v-model="apiConfig.apiKey" placeholder="sk-..." show-password />
+        <div class="cs-hint">
+          在 DeepSeek 开放平台（platform.deepseek.com）创建，仅保存在当前浏览器中
+        </div>
       </el-form-item>
 
-      <el-form-item label="法术模型">
+      <el-form-item label="模型 model">
         <el-select v-model="apiConfig.model" class="w-full">
-          <el-option label="DeepSeek Chat" value="deepseek-chat" />
-          <el-option label="DeepSeek Chat Light" value="deepseek-chat-light" />
-          <el-option label="DeepSeek Coder" value="deepseek-coder" />
+          <el-option label="deepseek-chat" value="deepseek-chat" />
+          <el-option label="deepseek-chat-light" value="deepseek-chat-light" />
+          <el-option label="deepseek-coder" value="deepseek-coder" />
         </el-select>
       </el-form-item>
 
-      <el-form-item label="火焰温度">
+      <el-form-item label="温度 temperature">
         <el-slider v-model="apiConfig.temperature" :min="0" :max="1" :step="0.1" class="w-full" />
-        <div class="cs-hint">低温使回答更确定，高温使回答更富有变化</div>
+        <div class="cs-hint">值越低回答越稳定，值越高越发散，客服场景建议 0.3–0.7</div>
       </el-form-item>
 
-      <el-form-item label="最大卷轴长度">
+      <el-form-item label="最大长度 max_tokens">
         <el-slider
           v-model="apiConfig.maxTokens"
           :min="100"
@@ -809,24 +811,24 @@ onUnmounted(() => {
           :step="100"
           class="w-full"
         />
-        <div class="cs-hint">控制回复的最大长度，卷轴越长消耗的法力越多</div>
+        <div class="cs-hint">单次回复的最大长度，数值越大消耗越多</div>
       </el-form-item>
 
-      <el-form-item label="智慧广度">
+      <el-form-item label="核采样 top_p">
         <el-slider v-model="apiConfig.topP" :min="0" :max="1" :step="0.1" class="w-full" />
-        <div class="cs-hint">控制词汇的多样性，值越高越博学</div>
+        <div class="cs-hint">控制候选词的多样性，通常保持默认 0.9 即可</div>
       </el-form-item>
 
-      <el-form-item label="逐字显现">
+      <el-form-item label="流式输出 stream">
         <el-switch v-model="apiConfig.stream" />
-        <div class="cs-hint">开启后回答将如魔法卷轴般逐字展开</div>
+        <div class="cs-hint">开启后回答逐字显示，关闭则等待完整回复后一次性显示</div>
       </el-form-item>
     </el-form>
 
     <template #footer>
       <div class="cs-dialog-footer">
         <button class="btn btn-secondary" @click="apiDialogVisible = false">取消</button>
-        <button class="btn btn-primary" @click="saveApiConfig">铭刻</button>
+        <button class="btn btn-primary" @click="saveApiConfig">保存</button>
       </div>
     </template>
   </el-dialog>
