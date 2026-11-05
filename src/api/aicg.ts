@@ -57,7 +57,7 @@ export const aicgApi = {
     addCustomerService(reqBody: object) {
         return httpDefault.post('/addCustomerService', reqBody)
     },
-    // 上传文件接口
+    // 上传文件接口（需登录，Authorization 由 httpFormData 的请求拦截器统一携带）
     uploadFile(reqBody: any) {
         return httpFormData.post('/uploadFile', reqBody)
     }

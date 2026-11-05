@@ -52,17 +52,41 @@ defineOptions({
   name: 'IntelligencePage'
 })
 
+interface RenderResult {
+  /** 完整回答 HTML，用于保存 / 导出 / 朗读 */
+  html: string
+  /** 按顶层块切分的 HTML，流式渲染时按块更新 */
+  blocks: string[]
+}
+
+interface RenderOptions {
+  /** 返回按块切分的 HTML，默认 false */
+  blocks?: boolean
+  /** 是否执行代码高亮，流式过程中应关闭 */
+  highlight?: boolean
+}
+
 // Worker 懒加载 + 消息队列，避免模块初始化时阻塞首屏渲染
+interface PendingRender {
+  resolve: (value: RenderResult) => void
+  reject: (reason?: unknown) => void
+}
 let _worker: Worker | null = null
-const _workerPendingQueue: Array<(value: string) => void> = []
+const _workerPendingQueue: PendingRender[] = []
 const getWorker = (): Worker => {
   if (!_worker) {
     _worker = new Worker(new URL('./worker.js', import.meta.url), {
       type: 'module'
     })
     _worker.onmessage = e => {
-      const resolve = _workerPendingQueue.shift()
-      if (resolve) resolve(e.data)
+      const pending = _workerPendingQueue.shift()
+      if (pending) pending.resolve(e.data)
+    }
+    // Worker 抛错时后续排队的结果会全部错位，直接整体失败并在下次重建
+    _worker.onerror = event => {
+      _workerPendingQueue.splice(0).forEach(pending => pending.reject(event))
+      _worker?.terminate()
+      _worker = null
     }
   }
   return _worker
@@ -161,6 +185,7 @@ let promptList: promptObject[] = reactive([])
 const promptIndex = ref(0)
 let templateList: templateObject[] = reactive([])
 const router = useRouter()
+const authStore = useStore()
 let promptValue = ref(CONSTATNS.DEFAULT.PROMPT_VALUE)
 let hoveredIndex = ref<number | null>(null)
 const disabled = ref(false)
@@ -475,7 +500,7 @@ const downloadCode = (encodedCode: string, language: string) => {
 // 退出登录（调服务端拉黑 token + 本地清理）
 const outLogin = () => {
   userApi.logout().then(() => {
-    useStore().clearToken()
+    authStore.clearToken()
     router.push('/')
   })
 }
@@ -568,11 +593,12 @@ const finalizeDeepseekTurn = (node: BranchNode | null, rawAnswer: string) => {
   const firstUser = pathTo(activeLeafId.value).find(item => item.role === 'user')
   const tree = serialize()
   const snapshotNode = tree.nodes.find(item => item.id === node.id)
-  renderInWorker(rawAnswer)
-    .then(html => {
+  renderInWorker(rawAnswer, { blocks: true, highlight: true })
+    .then(result => {
       // 直接写节点，避免切换会话后 allText 下标已经指向别的对话
-      node.adminContent!.adminText = html
-      if (snapshotNode?.adminContent) snapshotNode.adminContent.adminText = html
+      node.adminContent!.adminText = result.html
+      node.adminContent!.blocks = result.blocks
+      if (snapshotNode?.adminContent) snapshotNode.adminContent.adminText = result.html
     })
     .catch(() => {})
     .then(() => {
@@ -686,16 +712,18 @@ const adjustTextareaHeight = (event: Event) => {
 }
 
 // worker封装（消息队列模式，防止并发覆盖 onmessage）
-const renderInWorker = (content: string): Promise<string> => {
-  return new Promise(resolve => {
+const renderInWorker = (content: string, options: RenderOptions = {}): Promise<RenderResult> => {
+  return new Promise((resolve, reject) => {
     const w = getWorker()
-    _workerPendingQueue.push(resolve)
-    w.postMessage(content)
+    _workerPendingQueue.push({ resolve, reject })
+    w.postMessage({ content, options })
   })
 }
 
 interface StreamRenderer {
   schedule: () => void
+  /** 暂停后续调度，已经在途的渲染仍会完成 */
+  pause: () => void
   dispose: () => void
 }
 
@@ -703,13 +731,15 @@ interface StreamRenderer {
 // 这里保证同一时刻只渲染最新一份内容，并按回答长度放宽刷新间隔
 const createStreamRenderer = (
   read: () => string,
-  write: (html: string) => void
+  write: (result: RenderResult) => void
 ): StreamRenderer => {
   let timer: number | null = null
   let rendering = false
   let dirty = false
+  let paused = false
   let disposed = false
 
+  // 内容越长单次重排越贵，刷新间隔随长度放宽；短内容保持 80ms 的逐字观感
   const interval = (length: number) => {
     if (length > 40000) return 400
     if (length > 15000) return 250
@@ -724,10 +754,11 @@ const createStreamRenderer = (
     if (!content) return
     dirty = false
     rendering = true
-    renderInWorker(content)
-      .then(html => {
+    // 流式期间不跑 highlight.js，并按块返回，前端只更新变化的块
+    renderInWorker(content, { blocks: true, highlight: false })
+      .then(result => {
         // 停止 / 切换会话后到达的结果直接丢弃，避免回写旧内容
-        if (!disposed) write(html)
+        if (!disposed) write(result)
       })
       .catch(() => {})
       .finally(() => {
@@ -737,10 +768,14 @@ const createStreamRenderer = (
   }
 
   const schedule = () => {
-    if (disposed) return
+    if (disposed || paused) return
     dirty = true
     if (timer !== null || rendering) return
     timer = window.setTimeout(run, interval(read().length))
+  }
+
+  const pause = () => {
+    paused = true
   }
 
   const dispose = () => {
@@ -751,7 +786,7 @@ const createStreamRenderer = (
     }
   }
 
-  return { schedule, dispose }
+  return { schedule, pause, dispose }
 }
 
 let answerRenderer: StreamRenderer | null = null
@@ -779,6 +814,8 @@ const finishStream = (status: 'done' | 'error' | 'stopped', persist = status !==
   if (!streamingNodeId.value) return
   const node = getNode(streamingNodeId.value)
   const rawAnswer = responce
+  // 正文开始后思考区已暂停调度，这里保留一份完整推理内容用于最终补渲染
+  const thinkRaw = serviceThinkContent.value
   // 停止后不再调度新的渲染，仍在队列里的结果也会被丢弃
   releaseStreamRenderers()
   if (node) {
@@ -805,15 +842,26 @@ const finishStream = (status: 'done' | 'error' | 'stopped', persist = status !==
       finalizeDeepseekTurn(node, rawAnswer)
     } else if (node?.adminContent && rawAnswer) {
       // 其他模型没有异步补渲染流程：先把最终全文渲染完再落盘，避免尾部丢失
-      renderInWorker(rawAnswer)
-        .then(html => {
-          if (node.raw === rawAnswer && node.adminContent) node.adminContent.adminText = html
+      renderInWorker(rawAnswer, { blocks: true, highlight: true })
+        .then(result => {
+          if (node.raw === rawAnswer && node.adminContent) {
+            node.adminContent.adminText = result.html
+            node.adminContent.blocks = result.blocks
+          }
         })
         .catch(() => {})
         .then(() => saveMessage())
     } else {
       saveMessage()
     }
+  }
+  // 思考区在正文开始后已暂停调度，这里补一次最终渲染，保证推理内容完整
+  if (node?.thinkContent && thinkRaw.trim()) {
+    renderInWorker(thinkRaw, { highlight: true })
+      .then(result => {
+        if (node.thinkContent) node.thinkContent.thinkText = result.html
+      })
+      .catch(() => {})
   }
   closeScroll.value = false
   clearFileText()
@@ -900,17 +948,20 @@ const startRequest = (
 
   // 上一轮如果没走完收尾，先释放它的渲染调度，避免结果回写到新的一轮
   releaseStreamRenderers()
-  const writeAnswer = (html: string) => {
+  const writeAnswer = (result: RenderResult) => {
     const node = getNode(assistantNode.id)
     if (!node?.adminContent) return
     node.adminContent.isShow = false
-    node.adminContent.adminText = html
+    // 按块写入：未变化的块 HTML 不变，前端不会重建对应 DOM
+    node.adminContent.blocks = result.blocks
+    node.adminContent.adminText = result.html
   }
-  const writeThink = (html: string) => {
+  const writeThink = (result: RenderResult) => {
     const node = getNode(assistantNode.id)
-    if (node?.thinkContent) node.thinkContent.thinkText = html
+    if (node?.thinkContent) node.thinkContent.thinkText = result.html
   }
   answerRenderer = createStreamRenderer(() => markdownContent.value, writeAnswer)
+  // 思考区和正文用同一套节流间隔（内容越长越降频），保证推理过程也是逐字刷新
   thinkRenderer = createStreamRenderer(() => serviceThinkContent.value, writeThink)
 
   if (currentModel.value == CONSTATNS.MODELS.DEEPSEEK_V4) {
@@ -928,11 +979,21 @@ const startRequest = (
     fetchEventSource(CONSTATNS.API.BASE_URL + CONSTATNS.API.DEEPSEEK_MODULE, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        // 后端接口已加登录校验，SSE 请求同样需要携带 token
+        Authorization: `Bearer ${authStore.token || ''}`
       },
       body: JSON.stringify(params),
       signal: ctrl.value.signal,
       openWhenHidden: true,
+      async onopen(response) {
+        // token 失效时直接回登录页，避免把 401 当成普通服务错误
+        if (response.status === 401) {
+          authStore.clearToken()
+          router.push('/')
+          throw new Error('登录已过期，请重新登录')
+        }
+      },
       onmessage(ev) {
         // 跳过空数据、非 JSON 或结束标记，避免 JSON.parse 抛异常
         if (!ev.data || ev.data === '[DONE]') return
@@ -962,6 +1023,9 @@ const startRequest = (
           if (msg.thinkContent) msg.thinkContent.status = '3'
         }
         if (res.choices?.[0]?.delta?.content) {
+          // 正文开始后不再继续调度思考区渲染，避免两条渲染链同时占用主线程；
+          // 收尾时会用完整推理内容补渲染一次
+          thinkRenderer?.pause()
           markdownContent.value += res.choices[0].delta.content
           responce += res.choices[0].delta.content
           msg.adminContent.isShow = false
@@ -971,6 +1035,8 @@ const startRequest = (
         // 仅在没有正常 choices 时才把 message 当作错误信息
         if (res.message && !res.choices?.length) {
           msg.adminContent.isShow = false
+          // 清空流式块，否则模板会优先展示残留的部分回答而不是错误信息
+          msg.adminContent.blocks = undefined
           msg.adminContent.adminText = res.message
           finishStream('error')
         }
@@ -983,6 +1049,8 @@ const startRequest = (
         const idx = timeCount.value
         if (allText[idx]) {
           allText[idx].adminContent.isShow = false
+          // 清空流式块，保证错误提示能显示出来
+          allText[idx].adminContent.blocks = undefined
           allText[idx].adminContent.adminText = CONSTATNS.MESSAGES.SERVER_ERROR
         }
         finishStream('error')
@@ -1039,6 +1107,8 @@ const startRequest = (
         // 讯飞星火每个成功分片都会带 message: "Success"，不能当作回答内容
         if (typeof res.code === 'number' && res.code !== 0) {
           msg.adminContent.isShow = false
+          // 清空流式块，否则模板会优先展示残留的部分回答而不是错误信息
+          msg.adminContent.blocks = undefined
           msg.adminContent.adminText = res.message || CONSTATNS.MESSAGES.SERVER_ERROR
           finishStream('error')
           return
@@ -1059,6 +1129,8 @@ const startRequest = (
         const idx = timeCount.value
         if (allText[idx]) {
           allText[idx].adminContent.isShow = false
+          // 清空流式块，保证错误提示能显示出来
+          allText[idx].adminContent.blocks = undefined
           allText[idx].adminContent.adminText = CONSTATNS.MESSAGES.SERVER_ERROR
         }
         finishStream('error')
@@ -1244,9 +1316,12 @@ const rehydrateAnswers = () => {
   pathTo(activeLeafId.value).forEach(node => {
     if (node.role !== 'assistant' || !node.adminContent || !node.raw) return
     if (node.adminContent.adminText) return
-    renderInWorker(node.raw)
-      .then(html => {
-        if (node.adminContent) node.adminContent.adminText = html
+    renderInWorker(node.raw, { blocks: true, highlight: true })
+      .then(result => {
+        if (node.adminContent) {
+          node.adminContent.adminText = result.html
+          node.adminContent.blocks = result.blocks
+        }
         nextTick(() => copyCode('.code-block-header__copy'))
       })
       .catch(() => {})

@@ -14,6 +14,8 @@ export interface BranchThinkContent {
 export interface BranchAdminContent {
   adminText: string
   isShow: boolean
+  /** 按顶层块切分的回答 HTML，仅用于流式渲染，不参与持久化 */
+  blocks?: string[]
 }
 
 export interface BranchNode {

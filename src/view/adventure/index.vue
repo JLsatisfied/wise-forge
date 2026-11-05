@@ -138,10 +138,22 @@ const sendToAI = (userInput: string, addUserMsg: boolean) => {
 
   fetchEventSource(BASE_URL + 'deepseekMoudle', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      // 后端接口已加登录校验，SSE 请求同样需要携带 token
+      Authorization: `Bearer ${store.token || ''}`
+    },
     body: JSON.stringify({ text: messages, moduleId: 'deepseek-v4-flash' }),
     signal: ctrl.value.signal,
     openWhenHidden: true,
+    async onopen(response) {
+      // token 失效时直接回登录页，避免把 401 当成普通服务错误
+      if (response.status === 401) {
+        store.clearToken()
+        router.push('/')
+        throw new Error('登录已过期，请重新登录')
+      }
+    },
     onmessage(ev) {
       try {
         const res = JSON.parse(ev.data)
@@ -161,8 +173,11 @@ const sendToAI = (userInput: string, addUserMsg: boolean) => {
     },
     onerror() {
       finishAIResponse(aiContent || '冒险途中遇到了一些波折，请稍后再试。')
-      return
+      // 抛出异常以终止 fetchEventSource 的默认无限重试，避免 401/网络错误时反复请求
+      throw new Error('stream error')
     }
+  }).catch(() => {
+    // 请求失败或用户中止：提示已在 onerror 中处理
   })
 }
 

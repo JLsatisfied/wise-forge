@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { EditPen, CopyDocument } from '@element-plus/icons-vue'
 import { allInstall, searchResultObject } from '@/utils/types/ai'
 import type { BranchVersion } from '../useConversationBranches'
@@ -96,13 +96,14 @@ const buildCitation = (num: number, target: number, source: searchResultObject):
   ].join('')
 }
 
-// 把 [1] / 【1】 转成可交互的引用标签，跳过代码块和已有链接
-const answerHtml = computed(() => {
-  const html = props.item.adminContent.adminText
+// 把 [1] / 【1】 转成可交互的引用标签，跳过代码块、复制用 textarea 和已有链接
+const applyCitations = (html: string): string => {
   const results = props.item.searchResults || []
   if (!results.length || !html) return html
   return html
-    .split(/(<pre[\s\S]*?<\/pre>|<code[\s\S]*?<\/code>|<a[\s\S]*?<\/a>)/gi)
+    .split(
+      /(<pre[\s\S]*?<\/pre>|<textarea[\s\S]*?<\/textarea>|<code[\s\S]*?<\/code>|<a[\s\S]*?<\/a>)/gi
+    )
     .map((part, index) => {
       if (index % 2 === 1) return part
       return part.replace(CITATION_PATTERN, (match, half, full) => {
@@ -113,7 +114,37 @@ const answerHtml = computed(() => {
       })
     })
     .join('')
+}
+
+// 已经渲染完的块不会再变化，缓存一次引用处理结果，避免每个分片都重新扫全量 HTML
+const citationCache = new Map<string, string>()
+
+// 流式阶段按块渲染：未变化的块字符串相同，Vue 不会重建对应 DOM
+const renderedBlocks = computed(() => {
+  const blocks = props.item.adminContent.blocks || []
+  if (!blocks.length || !props.item.searchResults?.length) return blocks
+  const lastIndex = blocks.length - 1
+  return blocks.map((block, index) => {
+    // 最后一个块仍在增长，每次都重新处理但不写入缓存
+    if (index === lastIndex) return applyCitations(block)
+    const cached = citationCache.get(block)
+    if (cached !== undefined) return cached
+    const processed = applyCitations(block)
+    citationCache.set(block, processed)
+    return processed
+  })
 })
+
+const hasBlocks = computed(() => !!props.item.adminContent.blocks?.length)
+
+// 整块渲染（历史记录 / 旧数据）继续走完整 HTML
+const answerHtml = computed(() => applyCitations(props.item.adminContent.adminText))
+
+// 切换消息（版本切换、打开其他会话）时清空块缓存
+watch(
+  () => props.item,
+  () => citationCache.clear()
+)
 
 // ===== HTML 代码块预览 =====
 const htmlPreviewVisible = ref(false)
@@ -283,10 +314,19 @@ const onCitationIconError = (event: Event) => {
           <div
             v-else
             class="text-sm leading-7 ai-txt"
-            v-html="answerHtml"
             @click="onContentClick"
             @error.capture="onCitationIconError"
-          ></div>
+          >
+            <template v-if="hasBlocks">
+              <div
+                v-for="(block, blockIndex) in renderedBlocks"
+                :key="blockIndex"
+                class="md-block"
+                v-html="block"
+              ></div>
+            </template>
+            <div v-else class="md-block" v-html="answerHtml"></div>
+          </div>
           <div
             v-if="!item.adminContent.isShow && item.adminContent.adminText"
             class="pixel-speech-row mt-3"
@@ -545,6 +585,11 @@ const onCitationIconError = (event: Event) => {
 
   :deep(p:last-child) {
     margin-bottom: 0;
+  }
+
+  /* 回答按块渲染时，只有最后一个块的最后一段才去掉底部间距 */
+  :deep(.md-block:not(:last-child) > p:last-child) {
+    margin-bottom: 10px;
   }
 
   :deep(h1),
@@ -932,8 +977,10 @@ const onCitationIconError = (event: Event) => {
   font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.7;
-  white-space: pre-wrap;
-  overflow-wrap: break-word;
+
+  /* 代码不折行，长行用横向滚动，避免每个分片都触发昂贵的折行布局 */
+  white-space: pre;
+  overflow-wrap: normal;
   overflow-x: auto;
 }
 
